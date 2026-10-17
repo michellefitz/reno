@@ -214,6 +214,8 @@
   .panes button { border: 0; background: transparent; width: 40px; padding: 5px 0; cursor: pointer; font: 500 13.5px var(--font-mono); }
   .panes button + button { border-left: 1px solid var(--rule); }
   .panes button[aria-checked="true"] { background: var(--ink); color: var(--sheet); }
+  .choice button { width: auto; padding: 5px 12px; font-family: var(--font-body); font-weight: 550; font-size: 13px; }
+  .porch-style { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--rule); }
 
   .facts { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; font-size: 13px; padding-top: 10px; border-top: 1px solid var(--rule); }
   .facts dt { color: var(--ink-2); }
@@ -311,7 +313,8 @@
       <footer class="source">
         <p id="source-note"></p>
         <p>Elevation only. The plan still has to work: the porch side walls must land on the bay corners, and a window that moves or changes width needs a new opening and lintel.</p>
-        <p>The porch keeps the drawn 33° roof pitch, so a wider porch has a higher ridge.</p>
+        <p>The hipped porch roof is drawn as one front slope that runs back to the wall, with hipped ends. At the sides it meets the bay fronts. Between the bays it runs on to the centre wall, which is 453 mm further back. The porch depth comes from the ground floor plan.</p>
+        <p>The new porch front follows your photo. Its door, side light and pier sizes are typical sizes, not measured ones.</p>
       </footer>
     </section>
 
@@ -363,6 +366,52 @@
           <div class="panes" role="radiogroup" aria-labelledby="panes-label" id="panes"></div>
         </div>
 
+        <div class="porch-style" id="porch-style">
+          <div class="field">
+            <span class="label" id="roof-label">Roof</span>
+            <div class="panes choice" role="radiogroup" aria-labelledby="roof-label" id="roof-form"></div>
+          </div>
+          <div class="field">
+            <label for="pitch" id="pitch-label">Front slope pitch</label>
+            <div class="numrow">
+              <input type="range" id="pitch-range" min="15" max="50" step="0.5" aria-label="Front slope pitch">
+              <input type="number" id="pitch" min="15" max="50" step="0.5" inputmode="decimal">
+              <span class="unit">°</span>
+            </div>
+          </div>
+          <div class="field" id="end-field">
+            <label for="end-pitch">Hipped end pitch</label>
+            <div class="numrow">
+              <input type="range" id="end-pitch-range" min="15" max="60" step="0.5" aria-label="Hipped end pitch">
+              <input type="number" id="end-pitch" min="15" max="60" step="0.5" inputmode="decimal">
+              <span class="unit">°</span>
+            </div>
+            <div class="snaps" id="end-snaps" role="group" aria-label="Hipped end presets"></div>
+          </div>
+          <div class="field" id="depth-field">
+            <label for="depth">Porch depth, front wall to bay fronts</label>
+            <div class="numrow">
+              <input type="range" id="depth-range" min="800" max="2400" step="10" aria-label="Porch depth">
+              <input type="number" id="depth" min="800" max="2400" step="10" inputmode="numeric">
+              <span class="unit">mm</span>
+            </div>
+            <div class="snaps" id="depth-snaps" role="group" aria-label="Depth presets"></div>
+          </div>
+          <div class="field">
+            <span class="label" id="front-label">Door and side lights</span>
+            <div class="panes choice" role="radiogroup" aria-labelledby="front-label" id="front-style"></div>
+          </div>
+          <div class="field" id="pier-field">
+            <label for="pier">Brick piers, each</label>
+            <div class="numrow">
+              <input type="range" id="pier-range" min="215" max="665" step="5" aria-label="Brick pier width">
+              <input type="number" id="pier" min="215" max="665" step="5" inputmode="numeric">
+              <span class="unit">mm</span>
+            </div>
+            <div class="snaps" id="pier-snaps" role="group" aria-label="Pier presets"></div>
+          </div>
+        </div>
+
         <dl class="facts" id="facts"></dl>
 
         <div class="row-actions">
@@ -411,6 +460,23 @@
     rails: [700, 780], glazing: [860, 1970], lowerPanel: [50, 650], frame: 80, panelInset: 50,
   };
 
+  // The new porch front, after the owners' photo: brick piers, one door with
+  // three glazed panes over three panels, and tall side lights. Typical sizes.
+  const PHOTO = {
+    doorFrame: 50, leaf: [20, 2000], stile: 110, bar: 40, glass: [1440, 1880], panels: [220, 1300],
+    handle: [95, 120, 750, 1550], lantern: { half: 80, y: [1560, 1850], cap: 100, capRise: 80 },
+  };
+  const TILE_GAUGE = 300; // spacing of tile courses up the slope
+  const toDeg = (r) => (r * 180) / Math.PI;
+  const tanDeg = (d) => Math.tan((d * Math.PI) / 180);
+  const STYLE_KEYS = ['roof', 'pitch', 'endPitch', 'depth', 'front', 'pier'];
+  const DRAWN_STYLE = {
+    roof: 'gable', pitch: toDeg(Math.atan(PO.slope)), endPitch: toDeg(Math.atan(PO.slope)),
+    depth: Math.round(PO.depth), front: 'drawn', pier: PO.post,
+  };
+  const NEW_STYLE = { roof: 'hipped', pitch: 22.5, endPitch: 45, depth: Math.round(PO.depth), front: 'photo', pier: 440 };
+  const LIMITS = { pitch: [15, 50], endPitch: [15, 60], depth: [800, 2400], pier: [215, 665] };
+
   const VIEWS = {
     facade: { x0: -500, x1: 10000, y0: -820, y1: 7000 },
     centre: { x0: 1700, x1: 7100, y0: -820, y1: 5750 },
@@ -431,10 +497,13 @@
       const d = E.windows[id];
       windows[id] = { cx: d.cx, width: d.width, panes: d.panes };
     }
-    return { porch: { cx: PO.cx, body: PO.body }, windows, rails: true };
+    return { porch: { cx: PO.cx, body: PO.body, ...DRAWN_STYLE }, windows, rails: true };
   }
   const DRAWN = drawnDesign();
-  let design = drawnDesign();
+  const styleOf = (p) => Object.fromEntries(STYLE_KEYS.map((k) => [k, p[k]]));
+  // Fills in settings that options saved before they existed do not have.
+  const normalise = (d) => ({ rails: true, ...d, porch: { ...NEW_STYLE, ...d.porch } });
+  let design = normalise({ ...drawnDesign(), porch: { cx: PO.cx, body: PO.body, ...NEW_STYLE } });
   // Phones open on the centre panel, where the porch and window are big enough to drag.
   const narrow = window.matchMedia('(max-width: 700px)').matches;
   let ui = { selected: 'ff-centre', view: narrow ? 'centre' : 'facade', guides: true, asDrawn: true, ghost: false, linkSides: true };
@@ -451,8 +520,65 @@
   function porchGeom(p) {
     const xl = p.cx - p.body / 2, xr = p.cx + p.body / 2;
     const el = xl - PO.overhang, er = xr + PO.overhang;
-    return { xl, xr, el, er, apex: PO.fasciaTop + ((er - el) / 2) * PO.slope };
+    const rise = p.roof === 'gable' ? [[el, 0], [p.cx, ((er - el) / 2) * tanDeg(p.pitch)], [er, 0]] : hipProfile(p, el, er);
+    const profile = rise.map(([x, h]) => [x, PO.fasciaTop + h]);
+    const top = Math.max(...profile.map((q) => q[1]));
+    let flat = 0;
+    for (let i = 1; i < profile.length; i++) {
+      if (top - profile[i][1] < 0.01 && top - profile[i - 1][1] < 0.01) flat += profile[i][0] - profile[i - 1][0];
+    }
+    return { xl, xr, el, er, profile, top, flat };
   }
+
+  // A hipped porch roof seen from the front. The front slope runs back to the
+  // wall: the bay fronts at the sides, the recessed centre wall between the bays.
+  // The hipped ends are seen edge on, so they are the sloping sides of the outline.
+  // Returns [x, height above the fascia] points along the top of the roof.
+  function hipProfile(p, el, er) {
+    const tf = tanDeg(p.pitch), te = tanDeg(p.endPitch);
+    const run = p.depth + PO.overhang;
+    const h1 = run * tf, h2 = (run + E.panel.recess) * tf;
+    const { left: pl, right: pr } = E.panel;
+    const h = (x, wall) => Math.max(0, Math.min((x - el) * te, (er - x) * te, wall));
+    const edges = [pl, pr].filter((x) => x > el && x < er);
+    const xs = [el, er, p.cx, el + h1 / te, el + h2 / te, er - h1 / te, er - h2 / te, ...edges]
+      .filter((x) => x >= el && x <= er);
+    const pts = [];
+    for (const x of [...new Set(xs)].sort((a, b) => a - b)) {
+      if (x === pl && edges.includes(x)) pts.push([x, h(x, h1)], [x, h(x, h2)]);
+      else if (x === pr && edges.includes(x)) pts.push([x, h(x, h2)], [x, h(x, h1)]);
+      else pts.push([x, h(x, x > pl && x < pr ? h2 : h1)]);
+    }
+    return pts.filter((q, i) => i === 0 || q[0] !== pts[i - 1][0] || q[1] !== pts[i - 1][1]);
+  }
+
+  // Highest point of a profile between x0 and x1, or null if it does not reach there.
+  function profileMax(profile, x0, x1) {
+    let best = null;
+    for (let i = 1; i < profile.length; i++) {
+      const [ax, ay] = profile[i - 1], [bx, by] = profile[i];
+      const lo = Math.max(ax, x0), hi = Math.min(bx, x1);
+      if (lo > hi) continue;
+      const at = (x) => (bx === ax ? Math.max(ay, by) : ay + ((by - ay) * (x - ax)) / (bx - ax));
+      best = Math.max(best ?? -Infinity, at(lo), at(hi));
+    }
+    return best;
+  }
+
+  // Where a profile is at or above height y, as [left x, right x].
+  function profileSpan(profile, y) {
+    const cross = ([ax, ay], [bx, by]) => (bx === ax ? ax : ax + ((y - ay) * (bx - ax)) / (by - ay));
+    let left = null, right = null;
+    for (let i = 1; i < profile.length && left === null; i++) {
+      if (profile[i][1] >= y) left = cross(profile[i - 1], profile[i]);
+    }
+    for (let i = profile.length - 2; i >= 0 && right === null; i--) {
+      if (profile[i][1] >= y) right = cross(profile[i + 1], profile[i]);
+    }
+    return left === null || right === null || right <= left ? null : [left, right];
+  }
+  const pierOf = (p) => (p.front === 'photo' ? p.pier : PO.post);
+  const minPorchWidth = (p) => Math.max(1900, Math.ceil((2 * pierOf(p) + PO.door + 400) / 10) * 10);
   const frameEdges = (w) => [w.cx - w.width / 2, w.cx + w.width / 2];
 
   // ---------- path helpers (drawing y is up; SVG y is down) ----------
@@ -495,22 +621,28 @@
 
   function porchPaths(p) {
     const g = porchGeom(p), cx = p.cx;
-    const a = g.xl + PO.post, b = cx - PO.door / 2, c = cx + PO.door / 2, dd = g.xr - PO.post;
-    const roof = [[g.el, PO.fasciaTop], [cx, g.apex], [g.er, PO.fasciaTop]];
-    const fill = poly([[g.el, PO.head], ...roof, [g.er, PO.head]], true) + rect(g.xl, PO.ground, g.xr, PO.head);
-    let outline = poly(roof) + rect(g.el, PO.head, g.er, PO.fasciaTop) +
+    const pier = pierOf(p);
+    const a = g.xl + pier, b = cx - PO.door / 2, c = cx + PO.door / 2, dd = g.xr - pier;
+    const fill = poly([[g.el, PO.head], ...g.profile, [g.er, PO.head]], true) + rect(g.xl, PO.ground, g.xr, PO.head);
+    let outline = poly(g.profile) + rect(g.el, PO.head, g.er, PO.fasciaTop) +
       seg(g.xl, PO.ground, g.xl, PO.head) + seg(g.xr, PO.ground, g.xr, PO.head) +
-      seg(a, PO.step, a, PO.head) + seg(dd, PO.step, dd, PO.head) + seg(a, 0, dd, 0) +
-      seg(b, 0, b, PO.head) + seg(c, 0, c, PO.head) + seg(b, PD.doorHead, c, PD.doorHead);
+      seg(a, 0, dd, 0) + seg(b, 0, b, PO.head) + seg(c, 0, c, PO.head);
     for (const y of PD.rails) outline += seg(a, y, b, y) + seg(c, y, dd, y);
-    const inset = PO.roofThickness / PO.slope;
-    let detail = poly([[g.el + inset, PO.fasciaTop], [cx, g.apex - PO.roofThickness], [g.er - inset, PO.fasciaTop]]) +
-      seg(g.xl, PO.step, g.xr, PO.step);
-    for (const [u0, u1] of PD.fanlightPanes) detail += rect(cx + u0, PD.fanlight[0], cx + u1, PD.fanlight[1]);
-    for (const s of [-1, 1]) {
-      detail += rect(cx + s * PD.leaf[0], PD.leaf[2], cx + s * PD.leaf[1], PD.leaf[3]);
-      detail += rect(cx + s * PD.leafPanel[0], PD.leafPanel[2], cx + s * PD.leafPanel[1], PD.leafPanel[3]);
+    let detail = seg(g.xl, PO.step, g.xr, PO.step);
+
+    if (p.roof === 'gable') {
+      const inset = PO.roofThickness / tanDeg(p.pitch);
+      detail += poly([[g.el + inset, PO.fasciaTop], [cx, g.top - PO.roofThickness], [g.er - inset, PO.fasciaTop]]);
+    } else {
+      // Tile courses on the front slope.
+      const rise = TILE_GAUGE * Math.sin((p.pitch * Math.PI) / 180);
+      for (let y = PO.fasciaTop + rise; y < g.top - rise / 3; y += rise) {
+        const span = profileSpan(g.profile, y);
+        if (span) detail += seg(span[0], y, span[1], y);
+      }
     }
+
+    // Side lights: glazing over a panel.
     for (const [l, r] of [[a, b], [c, dd]]) {
       if (r - l > 2 * PD.frame + 40) {
         detail += rect(l + PD.frame, PD.glazing[0], r - PD.frame, PD.glazing[1]);
@@ -520,7 +652,36 @@
         detail += rect(l + PD.frame + PD.panelInset, PD.lowerPanel[0] + PD.panelInset, r - PD.frame - PD.panelInset, PD.lowerPanel[1] - PD.panelInset);
       }
     }
-    const shape = poly([[g.el, PO.head], ...roof, [g.er, PO.head], [g.er, PO.head], [g.xr, PO.head], [g.xr, PO.ground], [g.xl, PO.ground], [g.xl, PO.head], [g.el, PO.head]], true);
+
+    if (p.front === 'photo') {
+      // Brick piers, one door with three glazed panes over three panels, wall lanterns.
+      outline += seg(a, PO.ground, a, PO.head) + seg(dd, PO.ground, dd, PO.head);
+      const L0 = b + PHOTO.doorFrame, L1 = c - PHOTO.doorFrame;
+      detail += rect(L0, PHOTO.leaf[0], L1, PHOTO.leaf[1]);
+      const i0 = L0 + PHOTO.stile, i1 = L1 - PHOTO.stile;
+      const pw = (i1 - i0 - 2 * PHOTO.bar) / 3;
+      for (let k = 0; k < 3; k++) {
+        const x = i0 + k * (pw + PHOTO.bar);
+        detail += rect(x, PHOTO.glass[0], x + pw, PHOTO.glass[1]) + rect(x, PHOTO.panels[0], x + pw, PHOTO.panels[1]);
+      }
+      const [h0, h1, hy0, hy1] = PHOTO.handle;
+      detail += rect(L0 + h0, hy0, L0 + h1, hy1);
+      if (pier >= 2 * PHOTO.lantern.cap) {
+        const { half, y: [ly0, ly1], cap, capRise } = PHOTO.lantern;
+        for (const pc of [(g.xl + a) / 2, (dd + g.xr) / 2]) {
+          detail += rect(pc - half, ly0, pc + half, ly1) + poly([[pc - cap, ly1], [pc, ly1 + capRise], [pc + cap, ly1]], true);
+        }
+      }
+    } else {
+      // The porch front as drawn: corner posts, double doors and a fanlight.
+      outline += seg(a, PO.step, a, PO.head) + seg(dd, PO.step, dd, PO.head) + seg(b, PD.doorHead, c, PD.doorHead);
+      for (const [u0, u1] of PD.fanlightPanes) detail += rect(cx + u0, PD.fanlight[0], cx + u1, PD.fanlight[1]);
+      for (const s of [-1, 1]) {
+        detail += rect(cx + s * PD.leaf[0], PD.leaf[2], cx + s * PD.leaf[1], PD.leaf[3]);
+        detail += rect(cx + s * PD.leafPanel[0], PD.leafPanel[2], cx + s * PD.leafPanel[1], PD.leafPanel[3]);
+      }
+    }
+    const shape = poly([[g.el, PO.head], ...g.profile, [g.er, PO.head], [g.xr, PO.head], [g.xr, PO.ground], [g.xl, PO.ground], [g.xl, PO.head], [g.el, PO.head]], true);
     return { fill, outline, detail, frame: shape };
   }
 
@@ -538,11 +699,7 @@
     const [wx0, wx1] = frameEdges(win);
     const sill0 = wx0 - WP.sillOverhang, sill1 = wx1 + WP.sillOverhang;
     // Highest point of the porch roof under the centre window sill.
-    let roofUnderSill = null;
-    if (sill1 > g.el && sill0 < g.er) {
-      const x = Math.min(Math.max(p.cx, sill0), sill1);
-      roofUnderSill = g.apex - Math.abs(x - p.cx) * PO.slope;
-    }
+    const roofUnderSill = profileMax(g.profile, sill0, sill1);
     const sillBottom = E.windows['ff-centre'].bottom - WP.sillHeight;
     const dL = p.cx - W['ff-left'].cx, dR = W['ff-right'].cx - p.cx;
     return {
@@ -557,7 +714,7 @@
       sideL: dL, sideR: dR,
       eavesL: g.el - frameEdges(W['gf-left'])[1],
       eavesR: frameEdges(W['gf-right'])[0] - g.er,
-      ridgeGap: roofUnderSill === null ? null : sillBottom - roofUnderSill,
+      roofGap: roofUnderSill === null ? null : sillBottom - roofUnderSill,
     };
   }
 
@@ -612,11 +769,11 @@
         words: eavesMin >= 100 ? 'Clear' : eavesMin >= 0 ? 'Tight' : 'Overlap',
       },
       {
-        label: 'Porch ridge under window sill',
-        value: m.ridgeGap === null ? 'n/a' : `${fmt(m.ridgeGap)} mm`,
-        detail: m.ridgeGap === null ? 'The porch roof is not under the centre window.' : 'Gap from the roof to the bottom of the sill above.',
-        lvl: m.ridgeGap === null || m.ridgeGap >= 150 ? 'ok' : m.ridgeGap >= 0 ? 'warn' : 'bad',
-        words: m.ridgeGap === null || m.ridgeGap >= 150 ? 'Clear' : m.ridgeGap >= 0 ? 'Tight' : 'Clash',
+        label: 'Porch roof under window sill',
+        value: m.roofGap === null ? 'n/a' : `${fmt(m.roofGap)} mm`,
+        detail: m.roofGap === null ? 'The porch roof is not under the centre window.' : 'Gap from the top of the porch roof to the bottom of the sill above.',
+        lvl: m.roofGap === null || m.roofGap >= 150 ? 'ok' : m.roofGap >= 0 ? 'warn' : 'bad',
+        words: m.roofGap === null || m.roofGap >= 150 ? 'Clear' : m.roofGap >= 0 ? 'Tight' : 'Clash',
       },
     ];
   }
@@ -691,7 +848,7 @@
     const c = DRAWN.windows[id].cx;
     return [Math.round(c - 1200), Math.round(c + 1200)];
   };
-  const widthRange = (id) => (id === 'porch' ? [1900, 3800] : [Math.ceil(minWidth(design.windows[id].panes) / 10) * 10, 3000]);
+  const widthRange = (id) => (id === 'porch' ? [minPorchWidth(design.porch), 3800] : [Math.ceil(minWidth(design.windows[id].panes) / 10) * 10, 3000]);
   const clamp = (v, [a, b]) => Math.min(b, Math.max(a, v));
 
   // ---------- mutations ----------
@@ -710,6 +867,12 @@
     width = clamp(width, widthRange(id));
     if (id === 'porch') design.porch.body = width;
     else setWindow(id, { width });
+  }
+  function setPorchStyle(patch) {
+    const p = design.porch;
+    Object.assign(p, patch);
+    for (const k in LIMITS) p[k] = clamp(p[k], LIMITS[k]);
+    p.body = Math.max(p.body, minPorchWidth(p));
   }
   const current = (id) => (id === 'porch' ? { cx: design.porch.cx, width: design.porch.body } : { ...design.windows[id] });
 
@@ -766,7 +929,8 @@
         const a = DRAWN.windows[id], b = design.windows[id];
         if (a.cx !== b.cx || a.width !== b.width) d += windowPaths(id, a).frame;
       }
-      if (DRAWN.porch.cx !== design.porch.cx || DRAWN.porch.body !== design.porch.body) d += porchPaths(DRAWN.porch).frame;
+      const drawnPorch = porchPaths(DRAWN.porch).frame;
+      if (drawnPorch !== porchPaths(design.porch).frame) d += drawnPorch;
       if (d) node('path', { d, class: 'asdrawn' }, L.asdrawn);
     }
     L.ghost.style.display = ui.ghost ? '' : 'none';
@@ -904,7 +1068,7 @@
     for (const b of document.querySelectorAll('[data-pick]')) b.setAttribute('aria-pressed', String(b.dataset.pick === id));
     $('#sel-title').textContent = titleFor(id);
     $('#sel-sub').textContent = id === 'porch'
-      ? `${Math.round(cur.width)} mm between corner posts · ${Math.round(cur.width + 2 * PO.overhang)} mm at the eaves`
+      ? `${design.porch.roof === 'hipped' ? 'Hipped' : 'Gable'} roof · ${Math.round(cur.width)} mm wide · ${Math.round(cur.width + 2 * PO.overhang)} mm at the eaves`
       : `${cur.panes} pane${cur.panes > 1 ? 's' : ''} · ${Math.round(cur.width)} mm wide`;
 
     const pr = posRange(id);
@@ -935,7 +1099,7 @@
       snaps.appendChild(b);
     }
 
-    $('#width-label').textContent = id === 'porch' ? 'Width between corner posts' : 'Overall frame width';
+    $('#width-label').textContent = id === 'porch' ? 'Overall width' : 'Overall frame width';
     const wr = widthRange(id);
     widthRangeEl.min = wr[0]; widthRangeEl.max = wr[1]; widthRangeEl.value = cur.width;
     widthEl.min = wr[0]; widthEl.max = wr[1];
@@ -969,14 +1133,18 @@
       }
     }
 
+    $('#porch-style').hidden = id !== 'porch';
+    if (id === 'porch') renderPorchStyle();
+
     const facts = [];
     if (id === 'porch') {
-      const g = m.g;
-      const side = (cur.width - 2 * PO.post - PO.door) / 2;
+      const g = m.g, p = design.porch;
+      const side = (cur.width - 2 * pierOf(p) - PO.door) / 2;
       facts.push(['Side lights, each', `${Math.round(side)} mm`]);
-      facts.push(['Ridge above floor level', `${Math.round(g.apex)} mm`]);
+      facts.push(['Top of roof above floor level', `${Math.round(g.top)} mm`]);
+      if (p.roof === 'hipped') facts.push(['Flat top of roof', g.flat >= 1 ? `${Math.round(g.flat)} mm long` : 'none, it comes to a point']);
       facts.push(['Eaves gap left | right', `${Math.round(m.eavesL)} | ${Math.round(m.eavesR)}`]);
-      facts.push(['Ridge to sill above', m.ridgeGap === null ? 'n/a' : `${Math.round(m.ridgeGap)} mm`]);
+      facts.push(['Roof to sill above', m.roofGap === null ? 'n/a' : `${Math.round(m.roofGap)} mm`]);
     } else {
       const pw = paneWidth(cur);
       const ph = paneHeight(id);
@@ -1001,6 +1169,65 @@
     }
     $('#link-wrap').hidden = !PARTNER[id];
     $('#link-sides').checked = ui.linkSides;
+  }
+
+  function chipRow(container, items) {
+    const el = $(container);
+    el.replaceChildren();
+    for (const t of items) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = t.label;
+      b.setAttribute('aria-pressed', String(Boolean(t.active)));
+      b.addEventListener('click', () => { t.pick(); render(); });
+      el.appendChild(b);
+    }
+  }
+  function choiceRow(container, options, value, pick) {
+    const el = $(container);
+    el.replaceChildren();
+    for (const [v, label] of options) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(v === value));
+      b.textContent = label;
+      b.addEventListener('click', () => { pick(v); render(); });
+      el.appendChild(b);
+    }
+  }
+  function showPair(name, value) {
+    const r = $(`#${name}-range`), n = $(`#${name}`);
+    r.value = value;
+    if (document.activeElement !== n) n.value = Math.round(value * 10) / 10;
+  }
+  function renderPorchStyle() {
+    const p = design.porch;
+    const hipped = p.roof === 'hipped';
+    // Each roof type starts at its own pitch: the drawn gable, or a low hipped roof.
+    choiceRow('#roof-form', [['hipped', 'Hipped'], ['gable', 'Gable, as drawn']], p.roof, (v) => {
+      if (v !== p.roof) setPorchStyle({ roof: v, pitch: (v === 'gable' ? DRAWN_STYLE : NEW_STYLE).pitch });
+    });
+    $('#pitch-label').textContent = hipped ? 'Front slope pitch' : 'Roof pitch';
+    showPair('pitch', p.pitch);
+    $('#end-field').hidden = !hipped;
+    $('#depth-field').hidden = !hipped;
+    showPair('end-pitch', p.endPitch);
+    chipRow('#end-snaps', [
+      { label: `Same as front (${Math.round(p.pitch * 10) / 10}°)`, active: p.endPitch === p.pitch, pick: () => setPorchStyle({ endPitch: p.pitch }) },
+      { label: '45°', active: p.endPitch === 45, pick: () => setPorchStyle({ endPitch: 45 }) },
+    ]);
+    showPair('depth', p.depth);
+    chipRow('#depth-snaps', [
+      { label: `As drawn (${Math.round(PO.depth)})`, active: p.depth === Math.round(PO.depth), pick: () => setPorchStyle({ depth: Math.round(PO.depth) }) },
+    ]);
+    choiceRow('#front-style', [['photo', 'Photo design'], ['drawn', 'As drawn']], p.front, (v) => setPorchStyle({ front: v }));
+    $('#pier-field').hidden = p.front !== 'photo';
+    showPair('pier', p.pier);
+    chipRow('#pier-snaps', [[215, '1 brick'], [328, '1½ bricks'], [440, '2 bricks']].map(([w, label]) => (
+      { label: `${label} (${w})`, active: p.pier === w, pick: () => setPorchStyle({ pier: w }) }
+    )));
   }
 
   function renderChecks(m) {
@@ -1033,7 +1260,7 @@
     const wpn = Math.round(m.winVsPanel);
     if (pp !== 0 && wpn !== 0) parts.push(`The window is ${Math.abs(wpn)} mm ${wpn > 0 ? 'right' : 'left'} of the panel centre.`);
     if (Math.min(m.eavesL, m.eavesR) < 0) parts.push('The porch roof overlaps a ground-floor window head.');
-    if (m.ridgeGap !== null && m.ridgeGap < 0) parts.push('The porch ridge hits the window sill above.');
+    if (m.roofGap !== null && m.roofGap < 0) parts.push('The porch roof hits the window sill above.');
     $('#verdict').textContent = parts.join(' ');
   }
 
@@ -1150,9 +1377,20 @@
     widthEl.blur();
     render();
   });
+  for (const [name, key] of [['pitch', 'pitch'], ['end-pitch', 'endPitch'], ['depth', 'depth'], ['pier', 'pier']]) {
+    const r = $(`#${name}-range`), n = $(`#${name}`);
+    r.addEventListener('input', () => { setPorchStyle({ [key]: Number(r.value) }); render(); });
+    n.addEventListener('change', () => {
+      const v = Number(n.value);
+      if (Number.isFinite(v)) setPorchStyle({ [key]: v });
+      n.blur();
+      render();
+    });
+  }
+  // Resetting the porch puts it back where the drawing has it and keeps its design.
   $('#reset-el').addEventListener('click', () => {
     const id = ui.selected;
-    if (id === 'porch') design.porch = clone(DRAWN.porch);
+    if (id === 'porch') setPorchStyle({ cx: DRAWN.porch.cx, body: DRAWN.porch.body });
     else {
       design.windows[id] = clone(DRAWN.windows[id]);
       if (ui.linkSides && PARTNER[id]) design.windows[PARTNER[id]] = clone(DRAWN.windows[PARTNER[id]]);
@@ -1177,6 +1415,7 @@
     b.addEventListener('click', () => {
       const d = drawnDesign();
       d.rails = design.rails;
+      Object.assign(d.porch, styleOf(design.porch));
       STARTS[b.dataset.start](d);
       design = d;
       ui.selected = b.dataset.start === 'porch-under-window' ? 'porch' : 'ff-centre';
@@ -1199,7 +1438,7 @@
       const li = document.createElement('li');
       const name = document.createElement('span'); name.className = 'name'; name.textContent = opt.name;
       const load = document.createElement('button'); load.type = 'button'; load.className = 'btn-quiet'; load.textContent = 'Show';
-      load.addEventListener('click', () => { design = { rails: true, ...clone(opt.design) }; render(); });
+      load.addEventListener('click', () => { design = normalise(clone(opt.design)); render(); });
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-quiet'; del.textContent = 'Remove';
       del.setAttribute('aria-label', `Remove ${opt.name}`);
       del.addEventListener('click', () => { const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved(); });
@@ -1221,7 +1460,7 @@
 
   // ---------- start ----------
   function start(data) {
-    if (data && data.design) design = { rails: true, ...data.design };
+    if (data && data.design) design = normalise(data.design);
     if (data && data.ui) ui = { ...ui, ...data.ui };
     $('#tb-source').textContent = E.source.replace(/\.dwg$/i, '');
     $('#source-note').textContent = `Line work from the proposed front elevation in ${E.source}. The porch and the five front windows are redrawn from that drawing's own dimensions so they can move. Everything else is the drawing as it is.`;

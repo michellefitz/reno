@@ -27,7 +27,8 @@ const VIEW = { x0: -1300, y0: -700, x1: 10499, y1: 9600 };
 
 // Measured from the proposed front elevation, in local mm.
 const HOUSE = { left: 0, right: 8667.1 };
-const PANEL = { left: 3332.5, right: 5443.5, top: 5020 };
+// recess: how far the centre panel wall sits behind the bay fronts (ground floor plan).
+const PANEL = { left: 3332.5, right: 5443.5, top: 5020, recess: 453.2 };
 const GABLES = { left: 1816.3, right: 7055.3 };
 const LEVELS = [
   { y: 8142.6, label: 'Ridge +8.143' },
@@ -62,7 +63,16 @@ const PORCH = {
   fasciaTop: 2300,
   slope: (3415.7 - 2300) / 1705.5, // roof rise per mm of run (about 33°)
   roofThickness: 119.5, // vertical offset of the inner roof line
+  depth: 1696.8, // front of the porch to the bay fronts (ground floor plan)
 };
+
+// Ground floor plan, drawing coordinates. Used only to check the two depths above.
+const GF_PLAN_REGION = [248000, -82000, 252800, -78900];
+const GF_PLAN_CHECKS = [
+  [249043.9, -81463.3], [251854.9, -81463.3], // front corners of the porch
+  [249393.9, -79766.5], [251504.9, -79766.5], // bay fronts at the centre panel corners
+  [249393.9, -79313.3], // centre panel wall
+];
 
 // Key vertices that must exist in the drawing. If the DWG changes, the build
 // stops instead of drawing the planner from stale dimensions.
@@ -92,11 +102,15 @@ const proposed = toLocal(extractRegion(db, regionFor(PROPOSED)), PROPOSED);
 const existing = toLocal(extractRegion(db, regionFor(EXISTING)), EXISTING);
 
 const near = (a, b, tol = 0.6) => Math.abs(a - b) <= tol;
-for (const [x, y] of CHECKS) {
-  if (!proposed.some((it) => it.pts.some(([px, py]) => near(px, x) && near(py, y)))) {
-    throw new Error(`expected a vertex at (${x}, ${y}) in the proposed front elevation; has the drawing changed?`);
+const expectVertices = (items, checks, where) => {
+  for (const [x, y] of checks) {
+    if (!items.some((it) => it.pts.some(([px, py]) => near(px, x) && near(py, y)))) {
+      throw new Error(`expected a vertex at (${x}, ${y}) in the ${where}; has the drawing changed?`);
+    }
   }
-}
+};
+expectVertices(proposed, CHECKS, 'proposed front elevation');
+expectVertices(extractRegion(db, GF_PLAN_REGION), GF_PLAN_CHECKS, 'proposed ground floor plan');
 
 const bbox = (it) => {
   const xs = it.pts.map((p) => p[0]), ys = it.pts.map((p) => p[1]);
