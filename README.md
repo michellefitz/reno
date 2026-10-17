@@ -9,7 +9,7 @@ Use it to test where the porch and the first-floor centre window go now that the
 - Drag the porch or a window sideways. They snap to the panel centre, the house centre and to each other.
 - Drag the square handles to change the width evenly about the centre. Set the number of panes in the side panel.
 - Turn "Window top rails" off to draw every front window as full-height panes, with no rail and no top light.
-- Select the porch to choose a hipped or gable roof, set the front and end pitches, the porch depth, and the pitch and height of the shallow roof off the wall, and switch between the photo design (brick piers, one door, tall side lights) and the drawn double doors.
+- Select the porch to choose a hipped or gable roof, set the front pitch and the porch depth, run the hips to the centre panel corners or set their pitch, and switch between the photo design (brick piers, one door, tall side lights) and the drawn double doors.
 - Choose **3D** to turn the front of the house and look at the porch from any angle. The viewpoint buttons stand at eye height at the front, at 40° from each side, from each side and from above. The model follows every change in the side panel. It loads three.js from cdnjs the first time it opens, and its code is in `porch-planner/house3d.js`.
 - The symmetry checks show the offsets, the pane widths and the clearances in millimetres.
 

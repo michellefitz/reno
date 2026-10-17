@@ -421,16 +421,15 @@
       const cosD = (deg) => Math.cos(rad(deg));
       let planes;
       if (p.roof === 'hipped') {
-        const tf = Math.tan(rad(p.pitch)), te = Math.tan(rad(p.endPitch));
-        // Steep front slope and hipped ends, meeting a shallow roof that comes off
-        // the wall. The roof off the wall is set by its pitch and by its height
-        // at the recessed centre wall.
-        const ta = Math.tan(rad(p.leanPitch)), hc = p.leanTop - base;
+        // One front slope from the walls straight down to the eaves, with hipped
+        // ends. The end slopes come from the planner (set, or to the panel corners).
+        const tf = Math.tan(rad(p.pitch));
+        const [tl, tr] = K.hipEndSlopes(p, el, er);
+        const cosT = (t) => Math.cos(Math.atan(t));
         planes = [
           { a: 0, b: -tf, c: base + zf * tf, uv: ([x, , z]) => [x, (zf - z) / cosD(p.pitch)] },
-          { a: 0, b: -ta, c: base + hc - ta * rec, uv: ([x, , z]) => [x, (zf - z) / cosD(p.leanPitch)] },
-          { a: te, b: 0, c: base - el * te, uv: ([x, , z]) => [z, (x - el) / cosD(p.endPitch)] },
-          { a: -te, b: 0, c: base + er * te, uv: ([x, , z]) => [z, (er - x) / cosD(p.endPitch)] },
+          { a: tl, b: 0, c: base - el * tl, uv: ([x, , z]) => [z, (x - el) / cosT(tl)] },
+          { a: -tr, b: 0, c: base + er * tr, uv: ([x, , z]) => [z, (er - x) / cosT(tr)] },
         ];
       } else {
         const tg = Math.tan(rad(p.pitch));
