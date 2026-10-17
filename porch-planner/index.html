@@ -276,6 +276,7 @@
           <button type="button" data-view="whole">Whole drawing</button>
         </div>
         <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="t-rails"> Window top rails</label>
           <label class="toggle"><input type="checkbox" id="t-guides"> Centre lines</label>
           <label class="toggle"><input type="checkbox" id="t-asdrawn"> <span class="swatch sw-asdrawn" aria-hidden="true"></span> As drawn</label>
           <label class="toggle"><input type="checkbox" id="t-ghost"> <span class="swatch sw-ghost" aria-hidden="true"></span> Existing house</label>
@@ -430,7 +431,7 @@
       const d = E.windows[id];
       windows[id] = { cx: d.cx, width: d.width, panes: d.panes };
     }
-    return { porch: { cx: PO.cx, body: PO.body }, windows };
+    return { porch: { cx: PO.cx, body: PO.body }, windows, rails: true };
   }
   const DRAWN = drawnDesign();
   let design = drawnDesign();
@@ -443,7 +444,9 @@
   const paneWidth = (w) => (w.width - 2 * WP.frame - (w.panes - 1) * WP.mullion) / w.panes;
   const widthForPane = (pw, n) => n * pw + 2 * WP.frame + (n - 1) * WP.mullion;
   const minWidth = (n) => widthForPane(MIN_PANE, n);
-  const lowerSashHeight = (id) => E.windows[id].top - E.windows[id].bottom - 2 * WP.frame - WP.topLight - WP.transom;
+  // With top rails, the pane below the rail; without, the full height inside the frame.
+  const paneHeight = (id, rails = design.rails) =>
+    E.windows[id].top - E.windows[id].bottom - 2 * WP.frame - (rails ? WP.topLight + WP.transom : 0);
 
   function porchGeom(p) {
     const xl = p.cx - p.body / 2, xr = p.cx + p.body / 2;
@@ -471,7 +474,7 @@
     return n;
   }
 
-  function windowPaths(id, w) {
+  function windowPaths(id, w, rails = design.rails) {
     const d = E.windows[id];
     const [x0, x1] = frameEdges(w);
     const { frame: f, mullion: m, sillOverhang: so, sillHeight: sh } = WP;
@@ -480,10 +483,11 @@
     const outline = rect(x0, yb, x1, yt) + rect(x0 - so, yb - sh, x1 + so, yb);
     let detail = d.head ? rect(x0, yt, x1, yt + d.head) : '';
     const pw = paneWidth(w);
-    const lowTop = yt - f - WP.topLight - WP.transom;
+    const lowTop = yb + f + paneHeight(id, rails);
     for (let i = 0; i < w.panes; i++) {
       const sx = x0 + f + i * (pw + m);
-      detail += rect(sx, yb + f, sx + pw, lowTop) + rect(sx, yt - f - WP.topLight, sx + pw, yt - f);
+      detail += rect(sx, yb + f, sx + pw, lowTop);
+      if (rails) detail += rect(sx, yt - f - WP.topLight, sx + pw, yt - f);
       if (i > 0) detail += seg(sx - m / 2, yb, sx - m / 2, yt);
     }
     return { fill, outline, detail, frame: rect(x0, yb, x1, yt) };
@@ -590,7 +594,7 @@
       {
         label: 'Pane widths, first floor',
         value: `${fmt(m.pane.c)} vs ${fmt(m.pane.l)}/${fmt(m.pane.r)}`,
-        detail: `Centre panes are ${Math.round(paneRatio * 100)}% of the side panes. All panes are ${lowerSashHeight('ff-centre')} mm tall.`,
+        detail: `Centre panes are ${Math.round(paneRatio * 100)}% of the side panes. All panes are ${paneHeight('ff-centre')} mm tall${design.rails ? ' below the top rail' : ''}.`,
         lvl: paneRatio >= 0.95 && paneRatio <= 1.05 ? 'ok' : paneRatio >= 0.85 && paneRatio <= 1.15 ? 'warn' : 'bad',
         words: paneRatio >= 0.95 && paneRatio <= 1.05 ? 'Match' : paneRatio >= 0.85 && paneRatio <= 1.15 ? 'Close' : 'Differ',
       },
@@ -975,9 +979,9 @@
       facts.push(['Ridge to sill above', m.ridgeGap === null ? 'n/a' : `${Math.round(m.ridgeGap)} mm`]);
     } else {
       const pw = paneWidth(cur);
-      const ph = lowerSashHeight(id);
+      const ph = paneHeight(id);
       facts.push(['Pane width', `${Math.round(pw)} mm`]);
-      facts.push(['Opening pane, w × h', `${Math.round(pw)} × ${ph}`]);
+      facts.push([design.rails ? 'Pane below rail, w × h' : 'Pane, w × h', `${Math.round(pw)} × ${ph}`]);
       facts.push(['Pane shape (height ÷ width)', `${(ph / pw).toFixed(2)}`]);
       if (id === 'ff-centre') {
         facts.push(['Wall left | right', `${Math.round(m.marginL)} | ${Math.round(m.marginR)}`]);
@@ -1041,6 +1045,7 @@
     renderChecks(m);
     renderVerdict(m);
     for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === ui.view));
+    $('#t-rails').checked = design.rails;
     $('#t-guides').checked = ui.guides;
     $('#t-asdrawn').checked = ui.asDrawn;
     $('#t-ghost').checked = ui.ghost;
@@ -1122,6 +1127,7 @@
   for (const b of document.querySelectorAll('[data-view]')) {
     b.addEventListener('click', () => { ui.view = b.dataset.view; setView(); render(); });
   }
+  $('#t-rails').addEventListener('change', (e) => { design.rails = e.target.checked; render(); });
   $('#t-guides').addEventListener('change', (e) => { ui.guides = e.target.checked; render(); });
   $('#t-asdrawn').addEventListener('change', (e) => { ui.asDrawn = e.target.checked; render(); });
   $('#t-ghost').addEventListener('change', (e) => { ui.ghost = e.target.checked; render(); });
@@ -1170,6 +1176,7 @@
   for (const b of document.querySelectorAll('[data-start]')) {
     b.addEventListener('click', () => {
       const d = drawnDesign();
+      d.rails = design.rails;
       STARTS[b.dataset.start](d);
       design = d;
       ui.selected = b.dataset.start === 'porch-under-window' ? 'porch' : 'ff-centre';
@@ -1192,7 +1199,7 @@
       const li = document.createElement('li');
       const name = document.createElement('span'); name.className = 'name'; name.textContent = opt.name;
       const load = document.createElement('button'); load.type = 'button'; load.className = 'btn-quiet'; load.textContent = 'Show';
-      load.addEventListener('click', () => { design = clone(opt.design); render(); });
+      load.addEventListener('click', () => { design = { rails: true, ...clone(opt.design) }; render(); });
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-quiet'; del.textContent = 'Remove';
       del.setAttribute('aria-label', `Remove ${opt.name}`);
       del.addEventListener('click', () => { const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved(); });
@@ -1214,7 +1221,7 @@
 
   // ---------- start ----------
   function start(data) {
-    if (data && data.design) design = data.design;
+    if (data && data.design) design = { rails: true, ...data.design };
     if (data && data.ui) ui = { ...ui, ...data.ui };
     $('#tb-source').textContent = E.source.replace(/\.dwg$/i, '');
     $('#source-note').textContent = `Line work from the proposed front elevation in ${E.source}. The porch and the five front windows are redrawn from that drawing's own dimensions so they can move. Everything else is the drawing as it is.`;
