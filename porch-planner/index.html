@@ -340,7 +340,7 @@
       <footer class="source">
         <p id="source-note"></p>
         <p>Elevation only. The plan still has to work: the porch side walls must land on the bay corners, and a window that moves or changes width needs a new opening and lintel.</p>
-        <p>The hipped porch roof is drawn as one front slope that runs back to the wall, with hipped ends. At the sides it meets the bay fronts. Between the bays it runs on to the centre wall, which is 453 mm further back. The porch depth comes from the ground floor plan.</p>
+        <p>The hipped porch roof has a front slope and two hipped ends that rise to a ridge set out from the bay fronts. A short back slope at the front pitch runs from the ridge down to the wall. Between the bays the wall is 453 mm further back. The porch depth comes from the ground floor plan.</p>
         <p>The new porch front follows your photo. Its door, side light and pier sizes are typical sizes, not measured ones.</p>
         <p>The 3D model is built from the front and side elevations and the ground floor plan. The rear of the house, the side windows, the garden and No. 19 next door are simplified.</p>
       </footer>
@@ -425,6 +425,15 @@
             </div>
             <div class="snaps" id="depth-snaps" role="group" aria-label="Depth presets"></div>
           </div>
+          <div class="field" id="ridge-field">
+            <label for="ridge">Ridge, set out from the bay fronts</label>
+            <div class="numrow">
+              <input type="range" id="ridge-range" min="0" max="800" step="10" aria-label="Ridge set out from the bay fronts">
+              <input type="number" id="ridge" min="0" max="800" step="10" inputmode="numeric">
+              <span class="unit">mm</span>
+            </div>
+            <div class="snaps" id="ridge-snaps" role="group" aria-label="Ridge presets"></div>
+          </div>
           <div class="field">
             <span class="label" id="front-label">Door and side lights</span>
             <div class="panes choice" role="radiogroup" aria-labelledby="front-label" id="front-style"></div>
@@ -501,13 +510,16 @@
   const TILE_GAUGE = 300; // spacing of tile courses up the slope
   const toDeg = (r) => (r * 180) / Math.PI;
   const tanDeg = (d) => Math.tan((d * Math.PI) / 180);
-  const STYLE_KEYS = ['roof', 'pitch', 'endPitch', 'depth', 'front', 'pier', 'sides'];
+  const STYLE_KEYS = ['roof', 'pitch', 'endPitch', 'depth', 'ridgeOffset', 'front', 'pier', 'sides'];
   const DRAWN_STYLE = {
     roof: 'gable', pitch: toDeg(Math.atan(PO.slope)), endPitch: toDeg(Math.atan(PO.slope)),
-    depth: Math.round(PO.depth), front: 'drawn', pier: PO.post, sides: 'glazed',
+    depth: Math.round(PO.depth), ridgeOffset: 300, front: 'drawn', pier: PO.post, sides: 'glazed',
   };
-  const NEW_STYLE = { roof: 'hipped', pitch: 22.5, endPitch: 45, depth: Math.round(PO.depth), front: 'photo', pier: 440, sides: 'glazed' };
-  const LIMITS = { pitch: [15, 50], endPitch: [15, 60], depth: [800, 2400], pier: [215, 665] };
+  const NEW_STYLE = {
+    roof: 'hipped', pitch: 22.5, endPitch: 45, depth: Math.round(PO.depth), ridgeOffset: 300,
+    front: 'photo', pier: 440, sides: 'glazed',
+  };
+  const LIMITS = { pitch: [15, 50], endPitch: [15, 60], depth: [800, 2400], ridgeOffset: [0, 800], pier: [215, 665] };
 
   const VIEWS = {
     facade: { x0: -500, x1: 10000, y0: -820, y1: 7000 },
@@ -562,27 +574,19 @@
     return { xl, xr, el, er, profile, top, flat };
   }
 
-  // A hipped porch roof seen from the front. The front slope runs back to the
-  // wall: the bay fronts at the sides, the recessed centre wall between the bays.
-  // The hipped ends are seen edge on, so they are the sloping sides of the outline.
+  // A hipped porch roof seen from the front. The front slope and the two hipped
+  // ends rise to a ridge set out from the bay fronts. A short back slope runs from
+  // the ridge down to the wall; from the front it is hidden behind the ridge.
   // Returns [x, height above the fascia] points along the top of the roof.
   function hipProfile(p, el, er) {
-    const tf = tanDeg(p.pitch), te = tanDeg(p.endPitch);
-    const run = p.depth + PO.overhang;
-    const h1 = run * tf, h2 = (run + E.panel.recess) * tf;
-    const { left: pl, right: pr } = E.panel;
-    const h = (x, wall) => Math.max(0, Math.min((x - el) * te, (er - x) * te, wall));
-    const edges = [pl, pr].filter((x) => x > el && x < er);
-    const xs = [el, er, p.cx, el + h1 / te, el + h2 / te, er - h1 / te, er - h2 / te, ...edges]
-      .filter((x) => x >= el && x <= er);
-    const pts = [];
-    for (const x of [...new Set(xs)].sort((a, b) => a - b)) {
-      if (x === pl && edges.includes(x)) pts.push([x, h(x, h1)], [x, h(x, h2)]);
-      else if (x === pr && edges.includes(x)) pts.push([x, h(x, h2)], [x, h(x, h1)]);
-      else pts.push([x, h(x, x > pl && x < pr ? h2 : h1)]);
-    }
-    return pts.filter((q, i) => i === 0 || q[0] !== pts[i - 1][0] || q[1] !== pts[i - 1][1]);
+    const te = tanDeg(p.endPitch);
+    const h = ridgeHeight(p), inset = h / te;
+    if (2 * inset >= er - el) return [[el, 0], [(el + er) / 2, ((er - el) / 2) * te], [er, 0]];
+    return [[el, 0], [el + inset, h], [er - inset, h], [er, 0]];
   }
+  // Plan distance from the front eaves to the ridge, and the ridge height above the fascia.
+  const ridgeRun = (p) => Math.max(200, p.depth + PO.overhang - p.ridgeOffset);
+  const ridgeHeight = (p) => ridgeRun(p) * tanDeg(p.pitch);
 
   // Highest point of a profile between x0 and x1, or null if it does not reach there.
   function profileMax(profile, x0, x1) {
@@ -803,7 +807,7 @@
       {
         label: 'Porch roof under window sill',
         value: m.roofGap === null ? 'n/a' : `${fmt(m.roofGap)} mm`,
-        detail: m.roofGap === null ? 'The porch roof is not under the centre window.' : 'Gap from the top of the porch roof to the bottom of the sill above.',
+        detail: m.roofGap === null ? 'The porch roof is not under the centre window.' : 'Seen from the front: gap from the top of the porch roof to the bottom of the sill above.',
         lvl: m.roofGap === null || m.roofGap >= 150 ? 'ok' : m.roofGap >= 0 ? 'warn' : 'bad',
         words: m.roofGap === null || m.roofGap >= 150 ? 'Clear' : m.roofGap >= 0 ? 'Tight' : 'Clash',
       },
@@ -904,6 +908,8 @@
     const p = design.porch;
     Object.assign(p, patch);
     for (const k in LIMITS) p[k] = clamp(p[k], LIMITS[k]);
+    // Keep the back slope above the fascia where it meets the recessed centre wall.
+    p.ridgeOffset = Math.min(p.ridgeOffset, Math.floor((p.depth + PO.overhang - E.panel.recess) / 20) * 10);
     p.body = Math.max(p.body, minPorchWidth(p));
   }
   const current = (id) => (id === 'porch' ? { cx: design.porch.cx, width: design.porch.body } : { ...design.windows[id] });
@@ -1221,7 +1227,7 @@
       const side = (cur.width - 2 * pierOf(p) - PO.door) / 2;
       facts.push(['Side lights, each', `${Math.round(side)} mm`]);
       facts.push(['Top of roof above floor level', `${Math.round(g.top)} mm`]);
-      if (p.roof === 'hipped') facts.push(['Flat top of roof', g.flat >= 1 ? `${Math.round(g.flat)} mm long` : 'none, it comes to a point']);
+      if (p.roof === 'hipped') facts.push(['Ridge length', g.flat >= 1 ? `${Math.round(g.flat)} mm` : 'none, it comes to a point']);
       facts.push(['Eaves gap left | right', `${Math.round(m.eavesL)} | ${Math.round(m.eavesR)}`]);
       facts.push(['Roof to sill above', m.roofGap === null ? 'n/a' : `${Math.round(m.roofGap)} mm`]);
     } else {
@@ -1292,6 +1298,11 @@
     showPair('pitch', p.pitch);
     $('#end-field').hidden = !hipped;
     $('#depth-field').hidden = !hipped;
+    $('#ridge-field').hidden = !hipped;
+    showPair('ridge', p.ridgeOffset);
+    chipRow('#ridge-snaps', [0, 300, 500].map((v) => (
+      { label: v ? `${v}` : 'At the bay fronts (0)', active: p.ridgeOffset === v, pick: () => setPorchStyle({ ridgeOffset: v }) }
+    )));
     showPair('end-pitch', p.endPitch);
     chipRow('#end-snaps', [
       { label: `Same as front (${Math.round(p.pitch * 10) / 10}°)`, active: p.endPitch === p.pitch, pick: () => setPorchStyle({ endPitch: p.pitch }) },
@@ -1461,7 +1472,7 @@
     widthEl.blur();
     render();
   });
-  for (const [name, key] of [['pitch', 'pitch'], ['end-pitch', 'endPitch'], ['depth', 'depth'], ['pier', 'pier']]) {
+  for (const [name, key] of [['pitch', 'pitch'], ['end-pitch', 'endPitch'], ['depth', 'depth'], ['ridge', 'ridgeOffset'], ['pier', 'pier']]) {
     const r = $(`#${name}-range`), n = $(`#${name}`);
     r.addEventListener('input', () => { setPorchStyle({ [key]: Number(r.value) }); render(); });
     n.addEventListener('change', () => {

@@ -422,8 +422,12 @@
       let planes;
       if (p.roof === 'hipped') {
         const tf = Math.tan(rad(p.pitch)), te = Math.tan(rad(p.endPitch));
+        // Front slope up to a ridge set out from the bay fronts, then a back slope
+        // at the same pitch down to the wall.
+        const run = Math.max(200, p.depth + ov - p.ridgeOffset), zr = zf - run;
         planes = [
           { a: 0, b: -tf, c: base + zf * tf, uv: ([x, , z]) => [x, (zf - z) / cosD(p.pitch)] },
+          { a: 0, b: tf, c: base + run * tf - tf * zr, uv: ([x, , z]) => [x, (z - zr) / cosD(p.pitch)] },
           { a: te, b: 0, c: base - el * te, uv: ([x, , z]) => [z, (x - el) / cosD(p.endPitch)] },
           { a: -te, b: 0, c: base + er * te, uv: ([x, , z]) => [z, (er - x) / cosD(p.endPitch)] },
         ];
