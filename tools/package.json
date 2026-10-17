@@ -1,0 +1,12 @@
+{
+  "name": "reno-tools",
+  "private": true,
+  "type": "module",
+  "description": "Scripts that turn the house DWG into data for the porch planner",
+  "scripts": {
+    "extract": "node extract-elevation.mjs"
+  },
+  "dependencies": {
+    "@mlightcad/libredwg-web": "0.8.1"
+  }
+}

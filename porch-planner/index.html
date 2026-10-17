@@ -1,0 +1,1231 @@
+<title>Glen Easton Porch Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: the elevation is a drawing sheet on the left; a control rail on the right holds the
+     part being edited and the symmetry checks. The rail stacks under the sheet on phones. */
+  :root {
+    --paper: #e9edee;
+    --sheet: #fbfcfc;
+    --ink: #1c2125;
+    --ink-2: #59636b;
+    --ink-3: #a3acb2;
+    --rule: #d3d9dc;
+    --accent: #1656c2;
+    --accent-wash: #e3ecfb;
+    --porch: #b0520a;
+    --panel: #08807a;
+    --house: #7748b3;
+    --ghost: #c2336f;
+    --ok: #1e7a44;
+    --warn: #9a6200;
+    --bad: #b42318;
+    --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101315; --sheet: #161a1d; --ink: #e2e7ea; --ink-2: #9aa5ad; --ink-3: #56606a;
+      --rule: #2a3137; --accent: #78a8ff; --accent-wash: #1b2a45; --porch: #f09a45; --panel: #3cc4bb;
+      --house: #b896f2; --ghost: #f27aa9; --ok: #52c785; --warn: #e2a845; --bad: #ff7e70;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101315; --sheet: #161a1d; --ink: #e2e7ea; --ink-2: #9aa5ad; --ink-3: #56606a;
+    --rule: #2a3137; --accent: #78a8ff; --accent-wash: #1b2a45; --porch: #f09a45; --panel: #3cc4bb;
+    --house: #b896f2; --ghost: #f27aa9; --ok: #52c785; --warn: #e2a845; --bad: #ff7e70;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.45;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 18px 40px;
+  }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .page { max-width: 1500px; margin: 0 auto; display: grid; gap: 16px; }
+
+  /* Title block, after the strip along the bottom of a drawing sheet. */
+  .titleblock {
+    display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between;
+    gap: 10px 32px; padding-bottom: 12px; border-bottom: 1.5px solid var(--ink);
+  }
+  .eyebrow {
+    margin: 0; font: 500 11.5px/1.3 var(--font-mono); letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ink-2);
+  }
+  h1 {
+    margin: 2px 0 0; font-family: var(--font-display); font-stretch: 72%; font-weight: 650;
+    font-size: clamp(28px, 3.4vw, 40px); line-height: 1.05; text-wrap: balance;
+  }
+  .tb-meta {
+    display: grid; grid-template-columns: auto auto; gap: 2px 14px; margin: 0;
+    font: 12px/1.4 var(--font-mono); color: var(--ink-2);
+  }
+  .tb-meta dt { text-transform: uppercase; letter-spacing: 0.06em; }
+  .tb-meta dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 368px; gap: 18px; align-items: start; }
+  @media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  .sheet {
+    background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 12px; display: grid; gap: 10px; min-width: 0;
+  }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    border: 0; background: transparent; padding: 6px 12px; font-size: 13px; cursor: pointer;
+    font-stretch: 90%; font-weight: 550;
+  }
+  .seg button + button { border-left: 1px solid var(--rule); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+  .toggles { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); margin: 0; }
+  .swatch { width: 14px; height: 0; border-top: 2px dashed currentColor; display: inline-block; }
+  .sw-ghost { color: var(--ghost); }
+  .sw-asdrawn { color: var(--ink-2); }
+
+  .verdict {
+    margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-wash);
+    font-size: 14.5px; min-height: 2.6em;
+  }
+
+  #elev {
+    display: block; width: 100%; height: auto; aspect-ratio: var(--view-ratio, 1.35);
+    max-height: min(74vh, 820px); min-height: 240px;
+    touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  }
+  .hint { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .hint kbd {
+    font: 11.5px var(--font-mono); border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px;
+  }
+
+  /* SVG line work. Stroke widths stay in screen pixels at every zoom. */
+  .ln { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+  .ln-o { stroke: var(--ink); stroke-width: 1.15; }
+  .ln-g { stroke: var(--ink); stroke-width: 2.2; }
+  .ln-d { stroke: var(--ink-2); stroke-width: 0.7; }
+  .nb { opacity: 0.38; }
+  .level { stroke: var(--ink-3); stroke-width: 0.7; stroke-dasharray: 9 6; }
+  .bound { stroke: var(--ink-3); stroke-width: 0.8; stroke-dasharray: 16 4 2 4; }
+  .svg-note { fill: var(--ink-2); font-family: var(--font-mono); }
+  .svg-note, .dim-text { paint-order: stroke; stroke: var(--sheet); stroke-width: 3px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
+  .el { cursor: grab; outline: none; }
+  .el.is-dragging { cursor: grabbing; }
+  .el-fill { fill: var(--sheet); stroke: none; }
+  .el:hover .el-outline, .el:focus-visible .el-outline { stroke: var(--accent); }
+  .el:focus-visible .el-fill { fill: var(--accent-wash); }
+  .el.is-selected .el-outline { stroke: var(--accent); stroke-width: 1.7; }
+  .el.is-selected .el-detail { stroke: var(--accent); opacity: 0.8; }
+  .asdrawn { fill: none; stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .ghost { fill: none; stroke: var(--ghost); stroke-width: 1.3; stroke-dasharray: 7 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+
+  .guide { stroke-width: 1.1; stroke-dasharray: 10 5; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .g-house { stroke: var(--house); color: var(--house); }
+  .g-panel { stroke: var(--panel); color: var(--panel); }
+  .g-porch { stroke: var(--porch); color: var(--porch); }
+  .g-window, .g-side { stroke: var(--accent); color: var(--accent); }
+  .tag rect { fill: var(--sheet); stroke: currentColor; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .tag text { fill: currentColor; font-family: var(--font-display); font-weight: 600; font-stretch: 85%; }
+  .tag { pointer-events: none; }
+
+  .dim { stroke: var(--ink-2); stroke-width: 0.8; fill: none; vector-effect: non-scaling-stroke; }
+  .dim-ext { stroke: var(--ink-3); stroke-width: 0.7; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+  .dim-text { fill: var(--ink); font-family: var(--font-mono); font-weight: 500; }
+  .dim-text.is-bad { fill: var(--bad); }
+  .dim-text.is-warn { fill: var(--warn); }
+  .dims { pointer-events: none; }
+
+  .handle { fill: var(--sheet); stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; cursor: ew-resize; }
+  .handle:hover { fill: var(--accent); }
+
+  .starts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .starts-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin-right: 4px; }
+
+  .chip {
+    border: 1px solid var(--rule); background: var(--sheet); border-radius: 999px;
+    padding: 4px 11px; font-size: 13px; cursor: pointer; line-height: 1.35;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
+
+  .source { margin: 0; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); display: grid; gap: 4px; }
+  .source p { margin: 0; max-width: 90ch; }
+
+  /* Rail */
+  .rail {
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px);
+    max-height: calc(100vh - 24px - env(safe-area-inset-top, 0px)); overflow: auto;
+    display: grid; gap: 14px; min-width: 0; overscroll-behavior: contain;
+  }
+  @media (max-width: 1000px) { .rail { position: static; max-height: none; overflow: visible; } }
+  .card {
+    background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 14px; display: grid; gap: 12px; min-width: 0;
+  }
+  h2 {
+    margin: 0; font-family: var(--font-display); font-stretch: 85%; font-weight: 650; font-size: 12.5px;
+    text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-2);
+  }
+
+  .keyplan { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 6px; align-items: stretch; }
+  .keyplan .row-label { font: 11px/1.2 var(--font-mono); color: var(--ink-2); align-self: center; text-transform: uppercase; letter-spacing: 0.05em; padding-right: 4px; }
+  .keyplan button {
+    border: 1px solid var(--rule); background: transparent; border-radius: 4px; padding: 8px 4px;
+    font-size: 13px; font-weight: 550; cursor: pointer; min-width: 0;
+  }
+  .keyplan button:hover { border-color: var(--accent); }
+  .keyplan button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .keyplan .porch-btn { font-stretch: 85%; }
+
+  .sel-head { display: grid; gap: 2px; }
+  .sel-title { margin: 0; font-family: var(--font-display); font-stretch: 78%; font-weight: 650; font-size: 22px; line-height: 1.15; }
+  .sel-sub { margin: 0; font: 12.5px var(--font-mono); color: var(--ink-2); }
+
+  .field { display: grid; gap: 6px; }
+  .field > label, .field > .label { font-size: 13px; font-weight: 600; }
+  .numrow { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; gap: 8px; align-items: center; }
+  .numrow input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .numrow input[type="number"] {
+    width: 84px; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 4px;
+    background: var(--sheet); font: 13.5px var(--font-mono); text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .unit { font: 12px var(--font-mono); color: var(--ink-2); }
+  .rel { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .snaps { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .panes { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; width: max-content; }
+  .panes button { border: 0; background: transparent; width: 40px; padding: 5px 0; cursor: pointer; font: 500 13.5px var(--font-mono); }
+  .panes button + button { border-left: 1px solid var(--rule); }
+  .panes button[aria-checked="true"] { background: var(--ink); color: var(--sheet); }
+
+  .facts { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; font-size: 13px; padding-top: 10px; border-top: 1px solid var(--rule); }
+  .facts dt { color: var(--ink-2); }
+  .facts dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+  .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .link-toggle { font-size: 13px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .link-toggle input { accent-color: var(--accent); margin: 0; }
+  .btn-quiet { border: 0; background: none; padding: 2px 0; color: var(--accent); cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; }
+  .checks li { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 4px 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--rule); }
+  .checks li:first-child { border-top: 0; padding-top: 0; }
+  .pill {
+    font: 600 10.5px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 3px 0; border-radius: 3px; text-align: center; align-self: start;
+  }
+  .lvl-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+  .lvl-warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+  .lvl-bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  .ck-label { margin: 0; font-size: 13.5px; font-weight: 600; }
+  .ck-detail { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-2); }
+  .ck-value { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .ck-body { min-width: 0; }
+
+  .save-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .save-form input { padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); min-width: 0; }
+  .btn {
+    border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); border-radius: 4px;
+    padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .saved-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .saved-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 13.5px; }
+  .saved-list .name { overflow-wrap: anywhere; }
+  .muted { margin: 0; font-size: 12.5px; color: var(--ink-2); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip, .keyplan button, .handle { transition: background-color 0.12s, border-color 0.12s, color 0.12s; }
+  }
+</style>
+
+<div class="page">
+  <header class="titleblock">
+    <div>
+      <p class="eyebrow">20 Glen Easton Gardens · Proposed front elevation</p>
+      <h1>Porch &amp; window planner</h1>
+    </div>
+    <dl class="tb-meta">
+      <dt>Drawing</dt><dd id="tb-source">—</dd>
+      <dt>Units</dt><dd>mm from party wall and ground floor level</dd>
+    </dl>
+  </header>
+
+  <main class="layout">
+    <section class="sheet" aria-label="Front elevation">
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Zoom">
+          <button type="button" data-view="facade">Front</button>
+          <button type="button" data-view="centre">Centre panel</button>
+          <button type="button" data-view="whole">Whole drawing</button>
+        </div>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="t-guides"> Centre lines</label>
+          <label class="toggle"><input type="checkbox" id="t-asdrawn"> <span class="swatch sw-asdrawn" aria-hidden="true"></span> As drawn</label>
+          <label class="toggle"><input type="checkbox" id="t-ghost"> <span class="swatch sw-ghost" aria-hidden="true"></span> Existing house</label>
+        </div>
+      </div>
+
+      <p class="verdict" id="verdict" aria-live="polite"></p>
+
+      <svg id="elev" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="elev-title" preserveAspectRatio="xMidYMid meet">
+        <title id="elev-title">Proposed front elevation of 20 Glen Easton Gardens with a movable porch and windows</title>
+        <g id="lyr-levels"></g>
+        <g id="lyr-static"></g>
+        <g id="lyr-elements"></g>
+        <g id="lyr-asdrawn"></g>
+        <g id="lyr-ghost"></g>
+        <g id="lyr-guides"></g>
+        <g id="lyr-dims" class="dims"></g>
+        <g id="lyr-handles"></g>
+      </svg>
+
+      <p class="hint" id="hint">Drag the porch or a window sideways. Drag the small square handles to change the width evenly about the centre. It snaps to centre lines; hold <kbd>Alt</kbd> to place it freely. With a part selected, <kbd>←</kbd> <kbd>→</kbd> move it 10 mm and <kbd>↑</kbd> <kbd>↓</kbd> change the width (<kbd>Shift</kbd> for 50 mm).</p>
+
+      <div class="starts" role="group" aria-label="Starting points">
+        <span class="starts-label">Starting points</span>
+        <button type="button" class="chip" data-start="drawn">As drawn</button>
+        <button type="button" class="chip" data-start="window-on-panel">Window centred on panel</button>
+        <button type="button" class="chip" data-start="porch-under-window">Porch under window</button>
+        <button type="button" class="chip" data-start="matched-two">Two panes matched to sides</button>
+        <button type="button" class="chip" data-start="three-panes">Three panes, centred</button>
+      </div>
+
+      <footer class="source">
+        <p id="source-note"></p>
+        <p>Elevation only. The plan still has to work: the porch side walls must land on the bay corners, and a window that moves or changes width needs a new opening and lintel.</p>
+        <p>The porch keeps the drawn 33° roof pitch, so a wider porch has a higher ridge.</p>
+      </footer>
+    </section>
+
+    <aside class="rail" aria-label="Edit and check">
+      <section class="card" aria-labelledby="kp-title">
+        <h2 id="kp-title">Choose a part</h2>
+        <div class="keyplan" role="group" aria-labelledby="kp-title">
+          <span class="row-label">First</span>
+          <button type="button" data-pick="ff-left">Left</button>
+          <button type="button" data-pick="ff-centre">Centre</button>
+          <button type="button" data-pick="ff-right">Right</button>
+          <span class="row-label">Ground</span>
+          <button type="button" data-pick="gf-left">Left</button>
+          <button type="button" data-pick="porch" class="porch-btn">Porch</button>
+          <button type="button" data-pick="gf-right">Right</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="sel-title">
+        <div class="sel-head">
+          <h2>Editing</h2>
+          <p class="sel-title" id="sel-title"></p>
+          <p class="sel-sub" id="sel-sub"></p>
+        </div>
+
+        <div class="field">
+          <label for="pos">Centre line from the party wall</label>
+          <div class="numrow">
+            <input type="range" id="pos-range" step="5" aria-label="Centre line position">
+            <input type="number" id="pos" step="5" inputmode="numeric">
+            <span class="unit">mm</span>
+          </div>
+          <p class="rel" id="pos-rel"></p>
+          <div class="snaps" id="pos-snaps" role="group" aria-label="Line up with"></div>
+        </div>
+
+        <div class="field">
+          <label for="width" id="width-label">Overall width</label>
+          <div class="numrow">
+            <input type="range" id="width-range" step="10" aria-label="Width">
+            <input type="number" id="width" step="10" inputmode="numeric">
+            <span class="unit">mm</span>
+          </div>
+          <div class="snaps" id="width-snaps" role="group" aria-label="Width presets"></div>
+        </div>
+
+        <div class="field" id="panes-field">
+          <span class="label" id="panes-label">Panes</span>
+          <div class="panes" role="radiogroup" aria-labelledby="panes-label" id="panes"></div>
+        </div>
+
+        <dl class="facts" id="facts"></dl>
+
+        <div class="row-actions">
+          <label class="link-toggle" id="link-wrap"><input type="checkbox" id="link-sides"> Keep first and ground floor windows the same</label>
+          <button type="button" class="btn-quiet" id="reset-el">Reset to drawing</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="checks-title">
+        <h2 id="checks-title">Symmetry checks</h2>
+        <ul class="checks" id="checks"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="saved-title">
+        <h2 id="saved-title">Saved options</h2>
+        <form class="save-form" id="save-form">
+          <input id="save-name" type="text" placeholder="Name this option" aria-label="Option name" maxlength="60">
+          <button class="btn" type="submit">Save</button>
+        </form>
+        <ul class="saved-list" id="saved-list"></ul>
+        <p class="muted" id="saved-note">Options are kept in this browser only.</p>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script src="elevation-data.js"></script>
+<script>
+(() => {
+  const E = window.ELEVATION;
+  const WP = E.windowParts;
+  const PO = E.porch;
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const PANEL_C = (E.panel.left + E.panel.right) / 2;
+  const HOUSE_C = (E.house.left + E.house.right) / 2;
+  const IDS = ['ff-left', 'ff-centre', 'ff-right', 'gf-left', 'gf-right'];
+  const PARTNER = { 'ff-left': 'gf-left', 'gf-left': 'ff-left', 'ff-right': 'gf-right', 'gf-right': 'ff-right' };
+  const MIN_PANE = 150;
+  const STORE_KEY = 'glen-easton-porch-planner:v1';
+
+  // Porch details below the roof, measured from the drawing (mm above floor
+  // level, and mm either side of the door centre line).
+  const PD = {
+    doorHead: 1650, fanlight: [1730, 1970], fanlightPanes: [[-420, -173.3], [-133.3, 133.3], [173.3, 420]],
+    leaf: [40, 420, 50, 1600], leafPanel: [90, 370, 100, 1550],
+    rails: [700, 780], glazing: [860, 1970], lowerPanel: [50, 650], frame: 80, panelInset: 50,
+  };
+
+  const VIEWS = {
+    facade: { x0: -500, x1: 10000, y0: -820, y1: 7000 },
+    centre: { x0: 1700, x1: 7100, y0: -820, y1: 5750 },
+    whole: { x0: E.view.x0, x1: E.view.x1, y0: -820, y1: E.view.y1 },
+  };
+
+  const $ = (s) => document.querySelector(s);
+  const svg = $('#elev');
+  const L = {
+    levels: $('#lyr-levels'), stat: $('#lyr-static'), els: $('#lyr-elements'), asdrawn: $('#lyr-asdrawn'),
+    ghost: $('#lyr-ghost'), guides: $('#lyr-guides'), dims: $('#lyr-dims'), handles: $('#lyr-handles'),
+  };
+
+  // ---------- state ----------
+  function drawnDesign() {
+    const windows = {};
+    for (const id of IDS) {
+      const d = E.windows[id];
+      windows[id] = { cx: d.cx, width: d.width, panes: d.panes };
+    }
+    return { porch: { cx: PO.cx, body: PO.body }, windows };
+  }
+  const DRAWN = drawnDesign();
+  let design = drawnDesign();
+  // Phones open on the centre panel, where the porch and window are big enough to drag.
+  const narrow = window.matchMedia('(max-width: 700px)').matches;
+  let ui = { selected: 'ff-centre', view: narrow ? 'centre' : 'facade', guides: true, asDrawn: true, ghost: false, linkSides: true };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  // ---------- geometry ----------
+  const paneWidth = (w) => (w.width - 2 * WP.frame - (w.panes - 1) * WP.mullion) / w.panes;
+  const widthForPane = (pw, n) => n * pw + 2 * WP.frame + (n - 1) * WP.mullion;
+  const minWidth = (n) => widthForPane(MIN_PANE, n);
+  const lowerSashHeight = (id) => E.windows[id].top - E.windows[id].bottom - 2 * WP.frame - WP.topLight - WP.transom;
+
+  function porchGeom(p) {
+    const xl = p.cx - p.body / 2, xr = p.cx + p.body / 2;
+    const el = xl - PO.overhang, er = xr + PO.overhang;
+    return { xl, xr, el, er, apex: PO.fasciaTop + ((er - el) / 2) * PO.slope };
+  }
+  const frameEdges = (w) => [w.cx - w.width / 2, w.cx + w.width / 2];
+
+  // ---------- path helpers (drawing y is up; SVG y is down) ----------
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const mv = (x, y) => `M${r1(x)} ${r1(-y)}`;
+  const ln = (x, y) => `L${r1(x)} ${r1(-y)}`;
+  const rect = (x0, y0, x1, y1) => `${mv(x0, y0)}${ln(x1, y0)}${ln(x1, y1)}${ln(x0, y1)}Z`;
+  const seg = (x0, y0, x1, y1) => `${mv(x0, y0)}${ln(x1, y1)}`;
+  const poly = (pts, close) => pts.map(([x, y], i) => (i ? ln : mv)(x, y)).join('') + (close ? 'Z' : '');
+  const flatPath = (d) => {
+    let s = mv(d[0], d[1]);
+    for (let i = 2; i < d.length; i += 2) s += ln(d[i], d[i + 1]);
+    return s;
+  };
+  function node(tag, attrs, parent) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  function windowPaths(id, w) {
+    const d = E.windows[id];
+    const [x0, x1] = frameEdges(w);
+    const { frame: f, mullion: m, sillOverhang: so, sillHeight: sh } = WP;
+    const yb = d.bottom, yt = d.top;
+    const fill = rect(x0 - so, yb - sh, x1 + so, yb) + rect(x0, yb, x1, yt + d.head);
+    const outline = rect(x0, yb, x1, yt) + rect(x0 - so, yb - sh, x1 + so, yb);
+    let detail = d.head ? rect(x0, yt, x1, yt + d.head) : '';
+    const pw = paneWidth(w);
+    const lowTop = yt - f - WP.topLight - WP.transom;
+    for (let i = 0; i < w.panes; i++) {
+      const sx = x0 + f + i * (pw + m);
+      detail += rect(sx, yb + f, sx + pw, lowTop) + rect(sx, yt - f - WP.topLight, sx + pw, yt - f);
+      if (i > 0) detail += seg(sx - m / 2, yb, sx - m / 2, yt);
+    }
+    return { fill, outline, detail, frame: rect(x0, yb, x1, yt) };
+  }
+
+  function porchPaths(p) {
+    const g = porchGeom(p), cx = p.cx;
+    const a = g.xl + PO.post, b = cx - PO.door / 2, c = cx + PO.door / 2, dd = g.xr - PO.post;
+    const roof = [[g.el, PO.fasciaTop], [cx, g.apex], [g.er, PO.fasciaTop]];
+    const fill = poly([[g.el, PO.head], ...roof, [g.er, PO.head]], true) + rect(g.xl, PO.ground, g.xr, PO.head);
+    let outline = poly(roof) + rect(g.el, PO.head, g.er, PO.fasciaTop) +
+      seg(g.xl, PO.ground, g.xl, PO.head) + seg(g.xr, PO.ground, g.xr, PO.head) +
+      seg(a, PO.step, a, PO.head) + seg(dd, PO.step, dd, PO.head) + seg(a, 0, dd, 0) +
+      seg(b, 0, b, PO.head) + seg(c, 0, c, PO.head) + seg(b, PD.doorHead, c, PD.doorHead);
+    for (const y of PD.rails) outline += seg(a, y, b, y) + seg(c, y, dd, y);
+    const inset = PO.roofThickness / PO.slope;
+    let detail = poly([[g.el + inset, PO.fasciaTop], [cx, g.apex - PO.roofThickness], [g.er - inset, PO.fasciaTop]]) +
+      seg(g.xl, PO.step, g.xr, PO.step);
+    for (const [u0, u1] of PD.fanlightPanes) detail += rect(cx + u0, PD.fanlight[0], cx + u1, PD.fanlight[1]);
+    for (const s of [-1, 1]) {
+      detail += rect(cx + s * PD.leaf[0], PD.leaf[2], cx + s * PD.leaf[1], PD.leaf[3]);
+      detail += rect(cx + s * PD.leafPanel[0], PD.leafPanel[2], cx + s * PD.leafPanel[1], PD.leafPanel[3]);
+    }
+    for (const [l, r] of [[a, b], [c, dd]]) {
+      if (r - l > 2 * PD.frame + 40) {
+        detail += rect(l + PD.frame, PD.glazing[0], r - PD.frame, PD.glazing[1]);
+        detail += rect(l + PD.frame, PD.lowerPanel[0], r - PD.frame, PD.lowerPanel[1]);
+      }
+      if (r - l > 2 * (PD.frame + PD.panelInset) + 40) {
+        detail += rect(l + PD.frame + PD.panelInset, PD.lowerPanel[0] + PD.panelInset, r - PD.frame - PD.panelInset, PD.lowerPanel[1] - PD.panelInset);
+      }
+    }
+    const shape = poly([[g.el, PO.head], ...roof, [g.er, PO.head], [g.er, PO.head], [g.xr, PO.head], [g.xr, PO.ground], [g.xl, PO.ground], [g.xl, PO.head], [g.el, PO.head]], true);
+    return { fill, outline, detail, frame: shape };
+  }
+
+  // ---------- measurements ----------
+  function relation(d, what) {
+    const v = Math.round(Math.abs(d));
+    if (v === 0) return `centred on ${what}`;
+    return `${v} mm ${d > 0 ? 'right' : 'left'} of ${what}`;
+  }
+  const level = (v, ok, warn) => (Math.abs(v) <= ok ? 'ok' : Math.abs(v) <= warn ? 'warn' : 'bad');
+
+  function measure() {
+    const W = design.windows, p = design.porch, g = porchGeom(p);
+    const win = W['ff-centre'];
+    const [wx0, wx1] = frameEdges(win);
+    const sill0 = wx0 - WP.sillOverhang, sill1 = wx1 + WP.sillOverhang;
+    // Highest point of the porch roof under the centre window sill.
+    let roofUnderSill = null;
+    if (sill1 > g.el && sill0 < g.er) {
+      const x = Math.min(Math.max(p.cx, sill0), sill1);
+      roofUnderSill = g.apex - Math.abs(x - p.cx) * PO.slope;
+    }
+    const sillBottom = E.windows['ff-centre'].bottom - WP.sillHeight;
+    const dL = p.cx - W['ff-left'].cx, dR = W['ff-right'].cx - p.cx;
+    return {
+      g,
+      winVsPorch: win.cx - p.cx,
+      winVsPanel: win.cx - PANEL_C,
+      porchVsPanel: p.cx - PANEL_C,
+      porchVsHouse: p.cx - HOUSE_C,
+      marginL: wx0 - E.panel.left,
+      marginR: E.panel.right - wx1,
+      pane: { c: paneWidth(win), l: paneWidth(W['ff-left']), r: paneWidth(W['ff-right']) },
+      sideL: dL, sideR: dR,
+      eavesL: g.el - frameEdges(W['gf-left'])[1],
+      eavesR: frameEdges(W['gf-right'])[0] - g.er,
+      ridgeGap: roofUnderSill === null ? null : sillBottom - roofUnderSill,
+    };
+  }
+
+  function checks(m) {
+    const paneRatio = m.pane.c / ((m.pane.l + m.pane.r) / 2);
+    const eavesMin = Math.min(m.eavesL, m.eavesR);
+    const mirror = m.sideR - m.sideL;
+    const fmt = (v) => `${Math.round(v)}`;
+    return [
+      {
+        label: 'Window over porch',
+        value: Math.abs(m.winVsPorch) < 0.5 ? 'centred' : `${fmt(Math.abs(m.winVsPorch))} mm ${m.winVsPorch > 0 ? 'R' : 'L'}`,
+        detail: 'First-floor centre window against the porch ridge.',
+        lvl: level(m.winVsPorch, 5, 25),
+      },
+      {
+        label: 'Window in centre panel',
+        value: `${fmt(m.marginL)} | ${fmt(m.marginR)}`,
+        detail: `Wall either side of the window. ${relation(m.winVsPanel, 'the panel centre').replace(/^./, (c) => c.toUpperCase())}.`,
+        lvl: level(m.winVsPanel, 5, 25),
+      },
+      {
+        label: 'Porch in centre panel',
+        value: Math.abs(m.porchVsPanel) < 0.5 ? 'centred' : `${fmt(Math.abs(m.porchVsPanel))} mm ${m.porchVsPanel > 0 ? 'R' : 'L'}`,
+        detail: `Panel runs ${fmt(E.panel.left)} to ${fmt(E.panel.right)} from the party wall.`,
+        lvl: level(m.porchVsPanel, 5, 25),
+      },
+      {
+        label: 'Porch on house centre',
+        value: Math.abs(m.porchVsHouse) < 0.5 ? 'centred' : `${fmt(Math.abs(m.porchVsHouse))} mm ${m.porchVsHouse > 0 ? 'R' : 'L'}`,
+        detail: `Party wall to side wall, centre at ${fmt(HOUSE_C)}. The panel centre is ${fmt(PANEL_C - HOUSE_C)} mm to the right of it.`,
+        lvl: level(m.porchVsHouse, 5, 60),
+      },
+      {
+        label: 'Pane widths, first floor',
+        value: `${fmt(m.pane.c)} vs ${fmt(m.pane.l)}/${fmt(m.pane.r)}`,
+        detail: `Centre panes are ${Math.round(paneRatio * 100)}% of the side panes. All panes are ${lowerSashHeight('ff-centre')} mm tall.`,
+        lvl: paneRatio >= 0.95 && paneRatio <= 1.05 ? 'ok' : paneRatio >= 0.85 && paneRatio <= 1.15 ? 'warn' : 'bad',
+        words: paneRatio >= 0.95 && paneRatio <= 1.05 ? 'Match' : paneRatio >= 0.85 && paneRatio <= 1.15 ? 'Close' : 'Differ',
+      },
+      {
+        label: 'Side windows about the porch',
+        value: `${fmt(m.sideL)} | ${fmt(m.sideR)}`,
+        detail: Math.abs(mirror) < 0.5 ? 'First-floor side windows mirror each other.' : `Right window is ${fmt(Math.abs(mirror))} mm ${mirror > 0 ? 'further from' : 'closer to'} the porch than the left.`,
+        lvl: level(mirror, 25, 100),
+      },
+      {
+        label: 'Porch eaves to ground-floor windows',
+        value: `${fmt(m.eavesL)} | ${fmt(m.eavesR)}`,
+        detail: eavesMin < 0 ? 'Gap from each eaves end to the window frame below. Negative means the porch roof overlaps the window head.' : 'Gap from each eaves end to the window frame below.',
+        lvl: eavesMin >= 100 ? 'ok' : eavesMin >= 0 ? 'warn' : 'bad',
+        words: eavesMin >= 100 ? 'Clear' : eavesMin >= 0 ? 'Tight' : 'Overlap',
+      },
+      {
+        label: 'Porch ridge under window sill',
+        value: m.ridgeGap === null ? 'n/a' : `${fmt(m.ridgeGap)} mm`,
+        detail: m.ridgeGap === null ? 'The porch roof is not under the centre window.' : 'Gap from the roof to the bottom of the sill above.',
+        lvl: m.ridgeGap === null || m.ridgeGap >= 150 ? 'ok' : m.ridgeGap >= 0 ? 'warn' : 'bad',
+        words: m.ridgeGap === null || m.ridgeGap >= 150 ? 'Clear' : m.ridgeGap >= 0 ? 'Tight' : 'Clash',
+      },
+    ];
+  }
+
+  // ---------- snapping targets ----------
+  function positionTargets(id) {
+    const W = design.windows, p = design.porch;
+    let t;
+    if (id === 'porch') {
+      t = [
+        { x: PANEL_C, label: 'Panel centre' },
+        { x: W['ff-centre'].cx, label: 'Under the window' },
+        { x: HOUSE_C, label: 'House centre' },
+        { x: DRAWN.porch.cx, label: 'As drawn' },
+      ];
+    } else if (id === 'ff-centre') {
+      t = [
+        { x: PANEL_C, label: 'Panel centre' },
+        { x: p.cx, label: 'Over the porch' },
+        { x: HOUSE_C, label: 'House centre' },
+        { x: DRAWN.windows[id].cx, label: 'As drawn' },
+      ];
+    } else {
+      const left = id.endsWith('left');
+      const other = W[left ? id.replace('left', 'right') : id.replace('right', 'left')];
+      const bayCentre = left ? (E.house.left + E.panel.left) / 2 : (E.panel.right + E.house.right) / 2;
+      t = [
+        { x: left ? E.gables.left : E.gables.right, label: 'Under the gable' },
+        { x: bayCentre, label: 'Bay centre' },
+        { x: 2 * p.cx - other.cx, label: 'Mirror of other side' },
+      ];
+      if (!ui.linkSides) t.push({ x: W[PARTNER[id]].cx, label: id.startsWith('ff') ? 'Line up with below' : 'Line up with above' });
+      t.push({ x: DRAWN.windows[id].cx, label: 'As drawn' });
+    }
+    // Merge targets that sit on the same line.
+    const out = [];
+    for (const item of t) {
+      const same = out.find((o) => Math.abs(o.x - item.x) < 1);
+      if (same) same.label += ` · ${item.label}`;
+      else out.push({ ...item });
+    }
+    return out;
+  }
+
+  function widthPresets(id) {
+    if (id === 'porch') {
+      const W = design.windows, p = design.porch;
+      const room = Math.min(p.cx - frameEdges(W['gf-left'])[1], frameEdges(W['gf-right'])[0] - p.cx);
+      const widest = Math.floor((2 * (room - PO.overhang - 100)) / 10) * 10;
+      const out = [{ w: DRAWN.porch.body, label: `As drawn (${DRAWN.porch.body})` }];
+      if (widest > 1900) out.push({ w: widest, label: `Widest with 100 mm eaves gap (${widest})` });
+      return out;
+    }
+    const w = design.windows[id];
+    const out = [];
+    if (id === 'ff-centre') {
+      for (const side of ['ff-left', 'ff-right']) {
+        const pw = paneWidth(design.windows[side]);
+        out.push({ w: Math.round(widthForPane(pw, w.panes)), label: `Panes match ${side === 'ff-left' ? 'left' : 'right'} (${Math.round(pw)})` });
+      }
+    } else {
+      const other = id.endsWith('left') ? id.replace('left', 'right') : id.replace('right', 'left');
+      out.push({ w: design.windows[other].width, label: `Same as other side (${design.windows[other].width})` });
+    }
+    out.push({ w: DRAWN.windows[id].width, label: `As drawn (${DRAWN.windows[id].width})` });
+    return out;
+  }
+
+  const posRange = (id) => {
+    if (id === 'porch') return [2300, 6500];
+    if (id === 'ff-centre') return [2600, 6200];
+    const c = DRAWN.windows[id].cx;
+    return [Math.round(c - 1200), Math.round(c + 1200)];
+  };
+  const widthRange = (id) => (id === 'porch' ? [1900, 3800] : [Math.ceil(minWidth(design.windows[id].panes) / 10) * 10, 3000]);
+  const clamp = (v, [a, b]) => Math.min(b, Math.max(a, v));
+
+  // ---------- mutations ----------
+  function setWindow(id, patch) {
+    const w = design.windows[id];
+    Object.assign(w, patch);
+    if (w.width < minWidth(w.panes)) w.width = Math.ceil(minWidth(w.panes) / 10) * 10;
+    if (ui.linkSides && PARTNER[id]) Object.assign(design.windows[PARTNER[id]], { cx: w.cx, width: w.width, panes: w.panes });
+  }
+  function setPos(id, cx) {
+    cx = clamp(cx, posRange(id));
+    if (id === 'porch') design.porch.cx = cx;
+    else setWindow(id, { cx });
+  }
+  function setWidth(id, width) {
+    width = clamp(width, widthRange(id));
+    if (id === 'porch') design.porch.body = width;
+    else setWindow(id, { width });
+  }
+  const current = (id) => (id === 'porch' ? { cx: design.porch.cx, width: design.porch.body } : { ...design.windows[id] });
+
+  // ---------- drawing ----------
+  let mmPerPx = 10;
+  function updateScale() {
+    const v = VIEWS[ui.view];
+    const r = svg.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) mmPerPx = Math.max((v.x1 - v.x0) / r.width, (v.y1 - v.y0) / r.height);
+  }
+
+  function buildStatic() {
+    const groups = {};
+    for (const item of E.lines) {
+      const key = item.k + (item.n ? 'n' : '');
+      groups[key] = (groups[key] || '') + flatPath(item.d);
+    }
+    for (const key of ['dn', 'on', 'gn', 'd', 'o', 'g']) {
+      if (groups[key]) node('path', { d: groups[key], class: `ln ln-${key[0]}${key[1] ? ' nb' : ''}` }, L.stat);
+    }
+    for (const lv of E.levels) node('path', { d: seg(E.view.x0, lv.y, E.view.x1, lv.y), class: 'level' }, L.levels);
+    for (const x of E.boundaries) node('path', { d: seg(x, PO.ground - 400, x, 8700), class: 'bound' }, L.levels);
+    node('path', { d: E.ghost.map(flatPath).join(''), class: 'ghost' }, L.ghost);
+  }
+
+  const elementNodes = {};
+  function buildElements() {
+    for (const id of [...IDS, 'porch']) {
+      const label = id === 'porch' ? 'Porch' : `${E.windows[id].label} window`;
+      const g = node('g', { class: 'el', 'data-el': id, tabindex: '0', role: 'button', 'aria-label': `${label}. Drag or use arrow keys to move.` }, L.els);
+      elementNodes[id] = {
+        g,
+        fill: node('path', { class: 'el-fill' }, g),
+        detail: node('path', { class: 'ln ln-d el-detail' }, g),
+        outline: node('path', { class: 'ln ln-o el-outline' }, g),
+      };
+    }
+  }
+
+  function renderElements() {
+    for (const id of [...IDS, 'porch']) {
+      const n = elementNodes[id];
+      const p = id === 'porch' ? porchPaths(design.porch) : windowPaths(id, design.windows[id]);
+      n.fill.setAttribute('d', p.fill);
+      n.detail.setAttribute('d', p.detail);
+      n.outline.setAttribute('d', p.outline);
+      n.g.classList.toggle('is-selected', ui.selected === id);
+    }
+    // Dashed outlines where a part sat in the drawing.
+    L.asdrawn.replaceChildren();
+    if (ui.asDrawn) {
+      let d = '';
+      for (const id of IDS) {
+        const a = DRAWN.windows[id], b = design.windows[id];
+        if (a.cx !== b.cx || a.width !== b.width) d += windowPaths(id, a).frame;
+      }
+      if (DRAWN.porch.cx !== design.porch.cx || DRAWN.porch.body !== design.porch.body) d += porchPaths(DRAWN.porch).frame;
+      if (d) node('path', { d, class: 'asdrawn' }, L.asdrawn);
+    }
+    L.ghost.style.display = ui.ghost ? '' : 'none';
+  }
+
+  function textNode(parent, x, y, str, cls, size, anchor = 'middle') {
+    const t = node('text', { x: r1(x), y: r1(-y), class: cls, 'font-size': r1(size), 'text-anchor': anchor }, parent);
+    t.textContent = str;
+    return t;
+  }
+
+  // Horizontal dimension with architectural ticks and the value above the line.
+  function dim(parent, xa, xb, y, opts = {}) {
+    const s = mmPerPx, t = 4 * s;
+    const v = xb - xa;
+    let d = seg(xa, y, xb, y);
+    for (const x of [xa, xb]) d += seg(x - t, y - t, x + t, y + t);
+    node('path', { d, class: 'dim' }, parent);
+    const txt = opts.text ?? `${Math.round(v)}`;
+    const cls = `dim-text${opts.lvl === 'bad' ? ' is-bad' : opts.lvl === 'warn' ? ' is-warn' : ''}`;
+    textNode(parent, (xa + xb) / 2, y + 4 * s, txt, cls, 11 * s);
+  }
+
+  function renderOverlays() {
+    const s = mmPerPx;
+    const v = VIEWS[ui.view];
+    const m = measure();
+    L.guides.replaceChildren();
+    L.dims.replaceChildren();
+    L.handles.replaceChildren();
+
+    // Level labels along the right edge.
+    for (const lv of E.levels) {
+      if (lv.y < v.y0 || lv.y > v.y1) continue;
+      textNode(L.dims, v.x1 - 8 * s, lv.y + 4 * s, lv.label, 'svg-note', 10 * s, 'end');
+    }
+    if (v.x0 < 0) textNode(L.dims, 6 * s, PO.ground - 560, 'Party wall', 'svg-note', 10 * s, 'start');
+
+    // Centre lines with tags stacked so they never overlap.
+    if (ui.guides) {
+      const guides = [
+        { key: 'house', x: HOUSE_C, label: 'House centre' },
+        { key: 'panel', x: PANEL_C, label: 'Panel centre' },
+        { key: 'porch', x: design.porch.cx, label: 'Porch' },
+        { key: 'window', x: design.windows['ff-centre'].cx, label: 'Centre window' },
+      ];
+      if (ui.selected !== 'porch' && ui.selected !== 'ff-centre') {
+        guides.push({ key: 'side', x: design.windows[ui.selected].cx, label: 'Selected window' });
+      }
+      const fs = 10.5 * s, h = 17 * s, gap = 4 * s;
+      const rows = [];
+      const placed = guides
+        .map((g) => ({ ...g, w: (g.label.length * 6.1 + 14) * s }))
+        .sort((a, b) => a.x - b.x)
+        .map((g) => {
+          let row = rows.findIndex((right) => g.x - g.w / 2 > right + gap);
+          if (row < 0) { rows.push(-Infinity); row = rows.length - 1; }
+          rows[row] = g.x + g.w / 2;
+          return { ...g, row };
+        });
+      const top = v.y1 - 8 * s;
+      const lineTop = top - rows.length * (h + gap);
+      for (const g of placed) {
+        node('path', { d: seg(g.x, PO.ground, g.x, lineTop), class: `guide g-${g.key}` }, L.guides);
+      }
+      for (const g of placed) {
+        const yTop = top - g.row * (h + gap);
+        const tag = node('g', { class: `tag g-${g.key}` }, L.guides);
+        node('rect', { x: r1(g.x - g.w / 2), y: r1(-yTop), width: r1(g.w), height: r1(h), rx: r1(3 * s) }, tag);
+        textNode(tag, g.x, yTop - h + 5 * s, g.label, '', fs);
+      }
+      // Offset between the porch and the window above it.
+      const a = design.porch.cx, b = design.windows['ff-centre'].cx;
+      if (Math.abs(a - b) >= 1) {
+        dim(L.dims, Math.min(a, b), Math.max(a, b), lineTop - 14 * s, { lvl: level(a - b, 5, 25) });
+      }
+    }
+
+    // Wall either side of the centre window.
+    const win = design.windows['ff-centre'];
+    const [wx0, wx1] = frameEdges(win);
+    const yMid = E.windows['ff-centre'].bottom + 230;
+    const marginLvl = level(m.marginL - m.marginR, 10, 50);
+    dim(L.dims, E.panel.left, wx0, yMid, { lvl: m.marginL < 0 ? 'bad' : marginLvl });
+    dim(L.dims, wx1, E.panel.right, yMid, { lvl: m.marginR < 0 ? 'bad' : marginLvl });
+
+    // Eaves gaps to the ground-floor windows, as a chain below ground.
+    const yc = PO.ground - 300;
+    const gl = frameEdges(design.windows['gf-left'])[1], gr = frameEdges(design.windows['gf-right'])[0];
+    let ext = '';
+    for (const x of [gl, m.g.el, m.g.er, gr]) ext += seg(x, PO.ground - 30, x, yc - 60);
+    node('path', { d: ext, class: 'dim-ext' }, L.dims);
+    const eavesLvl = (gap) => (gap >= 100 ? 'ok' : gap >= 0 ? 'warn' : 'bad');
+    dim(L.dims, gl, m.g.el, yc, { lvl: eavesLvl(m.eavesL), text: `${Math.round(m.eavesL)}` });
+    dim(L.dims, m.g.er, gr, yc, { lvl: eavesLvl(m.eavesR), text: `${Math.round(m.eavesR)}` });
+
+    // Width handles on the selected part.
+    const id = ui.selected;
+    let hx, hy;
+    if (id === 'porch') {
+      const g = m.g;
+      hx = [g.xl, g.xr];
+      hy = 1100;
+    } else {
+      hx = frameEdges(design.windows[id]);
+      hy = (E.windows[id].bottom + E.windows[id].top) / 2;
+    }
+    const hw = 11 * s, hh = 26 * s;
+    hx.forEach((x, i) => {
+      node('rect', {
+        x: r1(x - hw / 2), y: r1(-hy - hh / 2), width: r1(hw), height: r1(hh), rx: r1(2 * s),
+        class: 'handle', 'data-handle': id, 'data-side': i ? 'right' : 'left',
+      }, L.handles);
+    });
+  }
+
+  function setView() {
+    const v = VIEWS[ui.view];
+    svg.setAttribute('viewBox', `${v.x0} ${-v.y1} ${v.x1 - v.x0} ${v.y1 - v.y0}`);
+    svg.style.setProperty('--view-ratio', `${v.x1 - v.x0} / ${v.y1 - v.y0}`);
+    updateScale();
+  }
+
+  // ---------- controls ----------
+  const posRangeEl = $('#pos-range'), posEl = $('#pos'), widthRangeEl = $('#width-range'), widthEl = $('#width');
+
+  function titleFor(id) {
+    if (id === 'porch') return 'Porch';
+    return `${E.windows[id].label} window`;
+  }
+
+  function renderControls(m) {
+    const id = ui.selected;
+    const cur = current(id);
+    for (const b of document.querySelectorAll('[data-pick]')) b.setAttribute('aria-pressed', String(b.dataset.pick === id));
+    $('#sel-title').textContent = titleFor(id);
+    $('#sel-sub').textContent = id === 'porch'
+      ? `${Math.round(cur.width)} mm between corner posts · ${Math.round(cur.width + 2 * PO.overhang)} mm at the eaves`
+      : `${cur.panes} pane${cur.panes > 1 ? 's' : ''} · ${Math.round(cur.width)} mm wide`;
+
+    const pr = posRange(id);
+    posRangeEl.min = pr[0]; posRangeEl.max = pr[1]; posRangeEl.value = cur.cx;
+    posEl.min = pr[0]; posEl.max = pr[1];
+    if (document.activeElement !== posEl) posEl.value = Math.round(cur.cx * 10) / 10;
+
+    const rel = [];
+    if (id === 'porch') {
+      rel.push(relation(m.porchVsPanel, 'the panel centre'), relation(-m.winVsPorch, 'the centre window'));
+    } else if (id === 'ff-centre') {
+      rel.push(relation(m.winVsPanel, 'the panel centre'), relation(m.winVsPorch, 'the porch'));
+    } else {
+      const gable = id.endsWith('left') ? E.gables.left : E.gables.right;
+      rel.push(relation(cur.cx - gable, 'the gable apex'));
+    }
+    $('#pos-rel').textContent = rel.join(' · ').replace(/^./, (c) => c.toUpperCase()) + '.';
+
+    const snaps = $('#pos-snaps');
+    snaps.replaceChildren();
+    for (const t of positionTargets(id)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = t.label;
+      b.setAttribute('aria-pressed', String(Math.abs(cur.cx - t.x) < 0.5));
+      b.addEventListener('click', () => { setPos(id, t.x); render(); });
+      snaps.appendChild(b);
+    }
+
+    $('#width-label').textContent = id === 'porch' ? 'Width between corner posts' : 'Overall frame width';
+    const wr = widthRange(id);
+    widthRangeEl.min = wr[0]; widthRangeEl.max = wr[1]; widthRangeEl.value = cur.width;
+    widthEl.min = wr[0]; widthEl.max = wr[1];
+    if (document.activeElement !== widthEl) widthEl.value = Math.round(cur.width * 10) / 10;
+    const ws = $('#width-snaps');
+    ws.replaceChildren();
+    for (const t of widthPresets(id)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = t.label;
+      b.setAttribute('aria-pressed', String(Math.abs(cur.width - t.w) < 0.5));
+      b.addEventListener('click', () => { setWidth(id, t.w); render(); });
+      ws.appendChild(b);
+    }
+
+    const panesField = $('#panes-field');
+    panesField.hidden = id === 'porch';
+    if (id !== 'porch') {
+      const panes = $('#panes');
+      panes.replaceChildren();
+      for (const n of [1, 2, 3, 4]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(cur.panes === n));
+        b.setAttribute('aria-label', `${n} pane${n > 1 ? 's' : ''}`);
+        b.textContent = n;
+        b.addEventListener('click', () => { setWindow(id, { panes: n }); render(); });
+        panes.appendChild(b);
+      }
+    }
+
+    const facts = [];
+    if (id === 'porch') {
+      const g = m.g;
+      const side = (cur.width - 2 * PO.post - PO.door) / 2;
+      facts.push(['Side lights, each', `${Math.round(side)} mm`]);
+      facts.push(['Ridge above floor level', `${Math.round(g.apex)} mm`]);
+      facts.push(['Eaves gap left | right', `${Math.round(m.eavesL)} | ${Math.round(m.eavesR)}`]);
+      facts.push(['Ridge to sill above', m.ridgeGap === null ? 'n/a' : `${Math.round(m.ridgeGap)} mm`]);
+    } else {
+      const pw = paneWidth(cur);
+      const ph = lowerSashHeight(id);
+      facts.push(['Pane width', `${Math.round(pw)} mm`]);
+      facts.push(['Opening pane, w × h', `${Math.round(pw)} × ${ph}`]);
+      facts.push(['Pane shape (height ÷ width)', `${(ph / pw).toFixed(2)}`]);
+      if (id === 'ff-centre') {
+        facts.push(['Wall left | right', `${Math.round(m.marginL)} | ${Math.round(m.marginR)}`]);
+      } else {
+        const [x0, x1] = frameEdges(cur);
+        const left = id.endsWith('left');
+        facts.push([left ? 'Party wall | panel corner' : 'Panel corner | side wall',
+          left ? `${Math.round(x0 - E.house.left)} | ${Math.round(E.panel.left - x1)}` : `${Math.round(x0 - E.panel.right)} | ${Math.round(E.house.right - x1)}`]);
+      }
+    }
+    const dl = $('#facts');
+    dl.replaceChildren();
+    for (const [k, v] of facts) {
+      const dt = document.createElement('dt'); dt.textContent = k;
+      const dd = document.createElement('dd'); dd.textContent = v;
+      dl.append(dt, dd);
+    }
+    $('#link-wrap').hidden = !PARTNER[id];
+    $('#link-sides').checked = ui.linkSides;
+  }
+
+  function renderChecks(m) {
+    const list = $('#checks');
+    list.replaceChildren();
+    for (const c of checks(m)) {
+      const li = document.createElement('li');
+      const pill = document.createElement('span');
+      pill.className = `pill lvl-${c.lvl}`;
+      pill.textContent = c.words || { ok: 'Aligned', warn: 'Close', bad: 'Off' }[c.lvl];
+      const body = document.createElement('div');
+      body.className = 'ck-body';
+      const lab = document.createElement('p'); lab.className = 'ck-label'; lab.textContent = c.label;
+      const det = document.createElement('p'); det.className = 'ck-detail'; det.textContent = c.detail;
+      body.append(lab, det);
+      const val = document.createElement('span');
+      val.className = 'ck-value';
+      val.textContent = c.value;
+      li.append(pill, body, val);
+      list.appendChild(li);
+    }
+  }
+
+  function renderVerdict(m) {
+    const parts = [];
+    const wp = Math.round(m.winVsPorch);
+    parts.push(wp === 0 ? 'The centre window sits over the porch.' : `The centre window is ${Math.abs(wp)} mm ${wp > 0 ? 'right' : 'left'} of the porch.`);
+    const pp = Math.round(m.porchVsPanel);
+    parts.push(pp === 0 ? 'The porch is centred on the panel.' : `The porch is ${Math.abs(pp)} mm ${pp > 0 ? 'right' : 'left'} of the panel centre.`);
+    const wpn = Math.round(m.winVsPanel);
+    if (pp !== 0 && wpn !== 0) parts.push(`The window is ${Math.abs(wpn)} mm ${wpn > 0 ? 'right' : 'left'} of the panel centre.`);
+    if (Math.min(m.eavesL, m.eavesR) < 0) parts.push('The porch roof overlaps a ground-floor window head.');
+    if (m.ridgeGap !== null && m.ridgeGap < 0) parts.push('The porch ridge hits the window sill above.');
+    $('#verdict').textContent = parts.join(' ');
+  }
+
+  function render() {
+    renderElements();
+    renderOverlays();
+    const m = measure();
+    renderControls(m);
+    renderChecks(m);
+    renderVerdict(m);
+    for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === ui.view));
+    $('#t-guides').checked = ui.guides;
+    $('#t-asdrawn').checked = ui.asDrawn;
+    $('#t-ghost').checked = ui.ghost;
+  }
+
+  function select(id) {
+    ui.selected = id;
+    render();
+  }
+
+  // ---------- pointer interaction ----------
+  let drag = null;
+  function svgX(e) {
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse()).x;
+  }
+  svg.addEventListener('pointerdown', (e) => {
+    const h = e.target.closest('[data-handle]');
+    const g = e.target.closest('[data-el]');
+    if (!h && !g) return;
+    e.preventDefault();
+    const id = h ? h.dataset.handle : g.dataset.el;
+    if (ui.selected !== id) select(id);
+    drag = { id, mode: h ? 'width' : 'move', x0: svgX(e), start: current(id), pointerId: e.pointerId };
+    svg.setPointerCapture(e.pointerId);
+    elementNodes[id].g.classList.add('is-dragging');
+    elementNodes[id].g.focus({ preventScroll: true });
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const x = svgX(e);
+    if (drag.mode === 'move') {
+      let cx = drag.start.cx + (x - drag.x0);
+      let snapped = null;
+      if (!e.altKey) {
+        const tol = 9 * mmPerPx;
+        for (const t of positionTargets(drag.id)) {
+          if (Math.abs(cx - t.x) <= tol && (!snapped || Math.abs(cx - t.x) < Math.abs(cx - snapped.x))) snapped = t;
+        }
+      }
+      cx = snapped ? snapped.x : Math.round(cx / 5) * 5;
+      setPos(drag.id, cx);
+    } else {
+      const cx = drag.start.cx;
+      setWidth(drag.id, Math.round((2 * Math.abs(x - cx)) / 10) * 10);
+    }
+    render();
+  });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    elementNodes[drag.id].g.classList.remove('is-dragging');
+    drag = null;
+  };
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+
+  svg.addEventListener('focusin', (e) => {
+    const g = e.target.closest('[data-el]');
+    if (g && g.dataset.el !== ui.selected && !drag) select(g.dataset.el);
+  });
+  svg.addEventListener('keydown', (e) => {
+    const g = e.target.closest('[data-el]');
+    if (!g) return;
+    const id = g.dataset.el;
+    const step = e.shiftKey ? 50 : 10;
+    const cur = current(id);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      setPos(id, cur.cx + (e.key === 'ArrowLeft' ? -step : step));
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      setWidth(id, cur.width + (e.key === 'ArrowDown' ? -step : step));
+    } else return;
+    e.preventDefault();
+    render();
+  });
+
+  // ---------- control events ----------
+  for (const b of document.querySelectorAll('[data-pick]')) b.addEventListener('click', () => select(b.dataset.pick));
+  for (const b of document.querySelectorAll('[data-view]')) {
+    b.addEventListener('click', () => { ui.view = b.dataset.view; setView(); render(); });
+  }
+  $('#t-guides').addEventListener('change', (e) => { ui.guides = e.target.checked; render(); });
+  $('#t-asdrawn').addEventListener('change', (e) => { ui.asDrawn = e.target.checked; render(); });
+  $('#t-ghost').addEventListener('change', (e) => { ui.ghost = e.target.checked; render(); });
+  $('#link-sides').addEventListener('change', (e) => {
+    ui.linkSides = e.target.checked;
+    if (ui.linkSides && PARTNER[ui.selected]) setWindow(ui.selected, {});
+    render();
+  });
+  posRangeEl.addEventListener('input', () => { setPos(ui.selected, Number(posRangeEl.value)); render(); });
+  posEl.addEventListener('change', () => {
+    const v = Number(posEl.value);
+    if (Number.isFinite(v)) setPos(ui.selected, v);
+    posEl.blur();
+    render();
+  });
+  widthRangeEl.addEventListener('input', () => { setWidth(ui.selected, Number(widthRangeEl.value)); render(); });
+  widthEl.addEventListener('change', () => {
+    const v = Number(widthEl.value);
+    if (Number.isFinite(v)) setWidth(ui.selected, v);
+    widthEl.blur();
+    render();
+  });
+  $('#reset-el').addEventListener('click', () => {
+    const id = ui.selected;
+    if (id === 'porch') design.porch = clone(DRAWN.porch);
+    else {
+      design.windows[id] = clone(DRAWN.windows[id]);
+      if (ui.linkSides && PARTNER[id]) design.windows[PARTNER[id]] = clone(DRAWN.windows[PARTNER[id]]);
+    }
+    render();
+  });
+
+  // Starting points. Each starts from the drawing.
+  const STARTS = {
+    drawn: () => {},
+    'window-on-panel': (d) => { d.windows['ff-centre'].cx = PANEL_C; },
+    'porch-under-window': (d) => { d.porch.cx = d.windows['ff-centre'].cx; },
+    'matched-two': (d) => {
+      const pw = paneWidth(d.windows['ff-left']);
+      Object.assign(d.windows['ff-centre'], { cx: PANEL_C, panes: 2, width: Math.round(widthForPane(pw, 2)) });
+    },
+    'three-panes': (d) => {
+      Object.assign(d.windows['ff-centre'], { cx: PANEL_C, panes: 3, width: Math.round(widthForPane(440, 3)) });
+    },
+  };
+  for (const b of document.querySelectorAll('[data-start]')) {
+    b.addEventListener('click', () => {
+      const d = drawnDesign();
+      STARTS[b.dataset.start](d);
+      design = d;
+      ui.selected = b.dataset.start === 'porch-under-window' ? 'porch' : 'ff-centre';
+      render();
+    });
+  }
+
+  // ---------- saved options (this browser only) ----------
+  function loadSaved() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+  }
+  function storeSaved(list) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; } catch { return false; }
+  }
+  function renderSaved() {
+    const list = loadSaved();
+    const ul = $('#saved-list');
+    ul.replaceChildren();
+    list.forEach((opt, i) => {
+      const li = document.createElement('li');
+      const name = document.createElement('span'); name.className = 'name'; name.textContent = opt.name;
+      const load = document.createElement('button'); load.type = 'button'; load.className = 'btn-quiet'; load.textContent = 'Show';
+      load.addEventListener('click', () => { design = clone(opt.design); render(); });
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-quiet'; del.textContent = 'Remove';
+      del.setAttribute('aria-label', `Remove ${opt.name}`);
+      del.addEventListener('click', () => { const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved(); });
+      li.append(name, load, del);
+      ul.appendChild(li);
+    });
+  }
+  $('#save-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#save-name');
+    const name = input.value.trim() || `Option ${loadSaved().length + 1}`;
+    const list = loadSaved();
+    list.push({ name, design: clone(design) });
+    const ok = storeSaved(list);
+    $('#saved-note').textContent = ok ? `Saved “${name}”. Options are kept in this browser only.` : 'This browser blocks saving here. Note the numbers in the panel instead.';
+    input.value = '';
+    renderSaved();
+  });
+
+  // ---------- start ----------
+  function start(data) {
+    if (data && data.design) design = data.design;
+    if (data && data.ui) ui = { ...ui, ...data.ui };
+    $('#tb-source').textContent = E.source.replace(/\.dwg$/i, '');
+    $('#source-note').textContent = `Line work from the proposed front elevation in ${E.source}. The porch and the five front windows are redrawn from that drawing's own dimensions so they can move. Everything else is the drawing as it is.`;
+    buildStatic();
+    buildElements();
+    setView();
+    render();
+    renderSaved();
+    new ResizeObserver(() => { updateScale(); renderOverlays(); }).observe(svg);
+  }
+  window.claude?.hot?.snapshot?.(() => ({ design, ui }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
