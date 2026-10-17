@@ -443,16 +443,28 @@
       piece(el, Math.min(pl, er), 0);
       piece(Math.max(el, pl), Math.min(er, pr), -rec);
       piece(Math.max(el, pr), er, 0);
-      planes.forEach((P, i) => {
+      const roofOf = (set) => set.forEach((P, i) => {
         const tris = [];
         for (const pc of pieces) {
           let poly = pc;
-          planes.forEach((Q, j) => { if (j !== i) poly = clipPoly(poly, P.a - Q.a, P.b - Q.b, P.c - Q.c); });
+          set.forEach((Q, j) => { if (j !== i) poly = clipPoly(poly, P.a - Q.a, P.b - Q.b, P.c - Q.c); });
           const pt = ([x, z]) => [x, P.a * x + P.b * z + P.c, z];
           for (let k = 1; k + 1 < poly.length; k++) tris.push([pt(poly[0]), pt(poly[k]), pt(poly[k + 1])]);
         }
         if (tris.length) trisMesh(tris, P.uv, M.tile, D);
       });
+      roofOf(planes);
+      if (p.roof === 'hipped') {
+        // The hipped roof on the front, drawn over the slope: where it is higher it
+        // shows, and its ridge runs back until it goes under the slope.
+        const th = Math.tan(rad(p.hipPitch)), cosH = Math.cos(rad(p.hipPitch));
+        const front = [
+          { a: 0, b: -th, c: base + zf * th, uv: ([x, , z]) => [x, (zf - z) / cosH] },
+          { a: th, b: 0, c: base - el * th, uv: ([x, , z]) => [z, (x - el) / cosH] },
+          { a: -th, b: 0, c: base + er * th, uv: ([x, , z]) => [z, (er - x) / cosH] },
+        ];
+        if (th > Math.tan(rad(p.pitch))) roofOf(front);
+      }
       // Ceiling and fascias.
       for (const pc of pieces) box(pc[0][0], head - 20, pc[0][1], pc[1][0], head, zf, M.trim, D);
       box(el, head, zf - 25, er, base, zf, M.trim, D);
