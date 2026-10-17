@@ -66,6 +66,35 @@ const PORCH = {
   depth: 1696.8, // front of the porch to the bay fronts (ground floor plan)
 };
 
+// Massing for the 3D view, in local mm. z is measured from the bay fronts, positive
+// towards the street. Depths and the main roof come from the proposed side elevation,
+// the gables, chimney and rooflights from the front elevation.
+const HOUSE_3D = {
+  depth: 10506.5, // bay fronts to the rear wall of the two-storey part
+  mainRoof: { eavesZ: 300, eavesY: 5264.2, soffitY: 5020, ridgeZ: -5253.2, ridgeY: 8142.6, rearEavesZ: -10806.5, vergeX: 8923.8 },
+  // Front gables: apex x, half width at the eaves, eaves and apex heights, and
+  // where their ridges meet the main roof.
+  gables: [
+    { apexX: 1816.3, half: 1653.5, eavesY: 5270, apexY: 6195.3, backZ: -1496.4 },
+    { apexX: 7055.3, half: 1705.6, eavesY: 5270, apexY: 6195.3, backZ: -1496.4 },
+  ],
+  // Boxed eaves at the feet of the gables.
+  eavesBoxes: [[0, 452.9], [3179.7, 5639.8], [8470.9, 8924]],
+  chimney: { x0: -401.6, x1: 401.7, baseY: 7092, topY: 8282.4, cap: 50, capTop: 8332.4, pots: [-199.3, 199.3], potTop: 8532.4, cowlTop: 8713.4 },
+  rooflights: [[4823.5, 5483.5], [6990.5, 7650.5]],
+  rooflightY: [7118.4, 7934.3],
+};
+
+// Proposed side elevation, drawing coordinates. Used to check the massing above.
+const SIDE_REGION = [336000, -27500, 371000, -15500];
+const SIDE_CHECKS = [
+  [348424.1, -25700.8], // bay front wall at ground
+  [358930.6, -20453.8], // rear wall at the eaves
+  [353677.3, -17331.2], // ridge
+  [348124.1, -20209.6], // front eaves
+  [349920.5, -19278.5], // gable ridge meets the main roof
+];
+
 // Ground floor plan, drawing coordinates. Used only to check the two depths above.
 const GF_PLAN_REGION = [248000, -82000, 252800, -78900];
 const GF_PLAN_CHECKS = [
@@ -111,6 +140,7 @@ const expectVertices = (items, checks, where) => {
 };
 expectVertices(proposed, CHECKS, 'proposed front elevation');
 expectVertices(extractRegion(db, GF_PLAN_REGION), GF_PLAN_CHECKS, 'proposed ground floor plan');
+expectVertices(extractRegion(db, SIDE_REGION), SIDE_CHECKS, 'proposed side elevation');
 
 const bbox = (it) => {
   const xs = it.pts.map((p) => p[0]), ys = it.pts.map((p) => p[1]);
@@ -191,6 +221,7 @@ const data = {
   windows: WINDOWS,
   windowParts: WINDOW_PARTS,
   porch: PORCH,
+  house3d: HOUSE_3D,
   lines,
   ghost,
 };

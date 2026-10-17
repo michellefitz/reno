@@ -10,7 +10,10 @@ Use it to test where the porch and the first-floor centre window go now that the
 - Drag the square handles to change the width evenly about the centre. Set the number of panes in the side panel.
 - Turn "Window top rails" off to draw every front window as full-height panes, with no rail and no top light.
 - Select the porch to choose a hipped or gable roof, set the pitches and the porch depth, and switch between the photo design (brick piers, one door, tall side lights) and the drawn double doors.
+- Choose **3D** to turn the front of the house and look at the porch from any angle. The viewpoint buttons stand at eye height at the front, at 40° from each side, from each side and from above. The model follows every change in the side panel. It loads three.js from cdnjs the first time it opens, and its code is in `porch-planner/house3d.js`.
 - The symmetry checks show the offsets, the pane widths and the clearances in millimetres.
+
+The 3D model is built from the front and side elevations and the ground floor plan. The rear, the side windows, the garden and No. 19 next door are simplified.
 
 All dimensions are in mm. x is measured from the party wall with No. 19 and y from ground floor level. The porch and the windows are redrawn from the drawing's own dimensions. All other line work is the drawing itself.
 

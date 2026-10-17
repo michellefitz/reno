@@ -19,6 +19,7 @@
     --panel: #08807a;
     --house: #7748b3;
     --ghost: #c2336f;
+    --sky: #d9e3ea;
     --ok: #1e7a44;
     --warn: #9a6200;
     --bad: #b42318;
@@ -31,6 +32,7 @@
       --paper: #101315; --sheet: #161a1d; --ink: #e2e7ea; --ink-2: #9aa5ad; --ink-3: #56606a;
       --rule: #2a3137; --accent: #78a8ff; --accent-wash: #1b2a45; --porch: #f09a45; --panel: #3cc4bb;
       --house: #b896f2; --ghost: #f27aa9; --ok: #52c785; --warn: #e2a845; --bad: #ff7e70;
+      --sky: #a9bac7; /* the model is lit for daytime, so the sky stays light */
       color-scheme: dark;
     }
   }
@@ -38,6 +40,7 @@
     --paper: #101315; --sheet: #161a1d; --ink: #e2e7ea; --ink-2: #9aa5ad; --ink-3: #56606a;
     --rule: #2a3137; --accent: #78a8ff; --accent-wash: #1b2a45; --porch: #f09a45; --panel: #3cc4bb;
     --house: #b896f2; --ghost: #f27aa9; --ok: #52c785; --warn: #e2a845; --bad: #ff7e70;
+    --sky: #a9bac7;
     color-scheme: dark;
   }
 
@@ -111,6 +114,15 @@
     touch-action: pan-y; user-select: none; -webkit-user-select: none;
   }
   .hint { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .three { display: grid; gap: 10px; }
+  .three-wrap {
+    position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: min(74vh, 820px); min-height: 280px;
+    background: var(--sky); border-radius: 3px; overflow: hidden;
+  }
+  .three-wrap canvas { outline: none; cursor: grab; }
+  .three-wrap canvas:active { cursor: grabbing; }
+  .three-wrap canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+  .three-msg { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; text-align: center; color: var(--ink-2); font-size: 14px; }
   .hint kbd {
     font: 11.5px var(--font-mono); border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px;
   }
@@ -276,12 +288,13 @@
           <button type="button" data-view="facade">Front</button>
           <button type="button" data-view="centre">Centre panel</button>
           <button type="button" data-view="whole">Whole drawing</button>
+          <button type="button" data-view="3d">3D</button>
         </div>
         <div class="toggles">
           <label class="toggle"><input type="checkbox" id="t-rails"> Window top rails</label>
-          <label class="toggle"><input type="checkbox" id="t-guides"> Centre lines</label>
-          <label class="toggle"><input type="checkbox" id="t-asdrawn"> <span class="swatch sw-asdrawn" aria-hidden="true"></span> As drawn</label>
-          <label class="toggle"><input type="checkbox" id="t-ghost"> <span class="swatch sw-ghost" aria-hidden="true"></span> Existing house</label>
+          <label class="toggle" data-2d><input type="checkbox" id="t-guides"> Centre lines</label>
+          <label class="toggle" data-2d><input type="checkbox" id="t-asdrawn"> <span class="swatch sw-asdrawn" aria-hidden="true"></span> As drawn</label>
+          <label class="toggle" data-2d><input type="checkbox" id="t-ghost"> <span class="swatch sw-ghost" aria-hidden="true"></span> Existing house</label>
         </div>
       </div>
 
@@ -299,6 +312,20 @@
         <g id="lyr-handles"></g>
       </svg>
 
+      <div class="three" id="view3d" hidden>
+        <div class="three-wrap" id="three-wrap"><p class="three-msg" id="three-msg">Loading the 3D model…</p></div>
+        <div class="starts" role="group" aria-label="Viewpoints">
+          <span class="starts-label">Look from</span>
+          <button type="button" class="chip" data-cam="left">Left, 40°</button>
+          <button type="button" class="chip" data-cam="front">Front</button>
+          <button type="button" class="chip" data-cam="right">Right, 40°</button>
+          <button type="button" class="chip" data-cam="left-side">Left side</button>
+          <button type="button" class="chip" data-cam="right-side">Right side</button>
+          <button type="button" class="chip" data-cam="above">Above</button>
+        </div>
+        <p class="hint">Drag to turn the model. Scroll or pinch to zoom. Shift-drag, or drag with two fingers, to move sideways. The viewpoints are at eye height, about 10 m from the porch. Change the porch and windows in the panel and the model follows.</p>
+      </div>
+
       <p class="hint" id="hint">Drag the porch or a window sideways. Drag the small square handles to change the width evenly about the centre. It snaps to centre lines; hold <kbd>Alt</kbd> to place it freely. With a part selected, <kbd>←</kbd> <kbd>→</kbd> move it 10 mm and <kbd>↑</kbd> <kbd>↓</kbd> change the width (<kbd>Shift</kbd> for 50 mm).</p>
 
       <div class="starts" role="group" aria-label="Starting points">
@@ -315,6 +342,7 @@
         <p>Elevation only. The plan still has to work: the porch side walls must land on the bay corners, and a window that moves or changes width needs a new opening and lintel.</p>
         <p>The hipped porch roof is drawn as one front slope that runs back to the wall, with hipped ends. At the sides it meets the bay fronts. Between the bays it runs on to the centre wall, which is 453 mm further back. The porch depth comes from the ground floor plan.</p>
         <p>The new porch front follows your photo. Its door, side light and pier sizes are typical sizes, not measured ones.</p>
+        <p>The 3D model is built from the front and side elevations and the ground floor plan. The rear of the house, the side windows, the garden and No. 19 next door are simplified.</p>
       </footer>
     </section>
 
@@ -401,6 +429,10 @@
             <span class="label" id="front-label">Door and side lights</span>
             <div class="panes choice" role="radiogroup" aria-labelledby="front-label" id="front-style"></div>
           </div>
+          <div class="field">
+            <span class="label" id="sides-label">Porch sides, seen in 3D</span>
+            <div class="panes choice" role="radiogroup" aria-labelledby="sides-label" id="porch-sides"></div>
+          </div>
           <div class="field" id="pier-field">
             <label for="pier">Brick piers, each</label>
             <div class="numrow">
@@ -469,12 +501,12 @@
   const TILE_GAUGE = 300; // spacing of tile courses up the slope
   const toDeg = (r) => (r * 180) / Math.PI;
   const tanDeg = (d) => Math.tan((d * Math.PI) / 180);
-  const STYLE_KEYS = ['roof', 'pitch', 'endPitch', 'depth', 'front', 'pier'];
+  const STYLE_KEYS = ['roof', 'pitch', 'endPitch', 'depth', 'front', 'pier', 'sides'];
   const DRAWN_STYLE = {
     roof: 'gable', pitch: toDeg(Math.atan(PO.slope)), endPitch: toDeg(Math.atan(PO.slope)),
-    depth: Math.round(PO.depth), front: 'drawn', pier: PO.post,
+    depth: Math.round(PO.depth), front: 'drawn', pier: PO.post, sides: 'glazed',
   };
-  const NEW_STYLE = { roof: 'hipped', pitch: 22.5, endPitch: 45, depth: Math.round(PO.depth), front: 'photo', pier: 440 };
+  const NEW_STYLE = { roof: 'hipped', pitch: 22.5, endPitch: 45, depth: Math.round(PO.depth), front: 'photo', pier: 440, sides: 'glazed' };
   const LIMITS = { pitch: [15, 50], endPitch: [15, 60], depth: [800, 2400], pier: [215, 665] };
 
   const VIEWS = {
@@ -879,6 +911,7 @@
   // ---------- drawing ----------
   let mmPerPx = 10;
   function updateScale() {
+    if (ui.view === '3d') return;
     const v = VIEWS[ui.view];
     const r = svg.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) mmPerPx = Math.max((v.x1 - v.x0) / r.width, (v.y1 - v.y0) / r.height);
@@ -955,6 +988,7 @@
   }
 
   function renderOverlays() {
+    if (ui.view === '3d') return;
     const s = mmPerPx;
     const v = VIEWS[ui.view];
     const m = measure();
@@ -1047,7 +1081,52 @@
     });
   }
 
+  // ---------- 3D view, loaded the first time it is opened ----------
+  const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  let house3d = null, loading3d = null;
+  const loadScript = (src) => new Promise((ok, fail) => {
+    const tag = document.createElement('script');
+    tag.src = src;
+    tag.onload = ok;
+    tag.onerror = () => fail(new Error(`could not load ${src}`));
+    document.head.appendChild(tag);
+  });
+  function show3D() {
+    const msg = $('#three-msg');
+    if (house3d) {
+      house3d.resize();
+      house3d.update(design);
+      return;
+    }
+    if (loading3d) return;
+    msg.hidden = false;
+    msg.textContent = 'Loading the 3D model…';
+    loading3d = (window.THREE ? Promise.resolve() : loadScript(THREE_URL))
+      .then(() => (window.House3D ? null : loadScript('house3d.js')))
+      .then(() => {
+        try {
+          house3d = window.House3D.create($('#three-wrap'), E, { PD, PHOTO });
+        } catch (err) {
+          msg.textContent = 'This browser could not start the 3D view. It needs WebGL, which may be turned off.';
+          return;
+        }
+        msg.hidden = true;
+        house3d.update(design);
+      })
+      .catch(() => { msg.textContent = 'The 3D model could not load. Check your connection, then choose 3D again.'; })
+      .finally(() => { loading3d = null; });
+  }
+
   function setView() {
+    const is3d = ui.view === '3d';
+    svg.toggleAttribute('hidden', is3d);
+    $('#hint').hidden = is3d;
+    $('#view3d').hidden = !is3d;
+    for (const t of document.querySelectorAll('[data-2d]')) t.hidden = is3d;
+    if (is3d) {
+      show3D();
+      return;
+    }
     const v = VIEWS[ui.view];
     svg.setAttribute('viewBox', `${v.x0} ${-v.y1} ${v.x1 - v.x0} ${v.y1 - v.y0}`);
     svg.style.setProperty('--view-ratio', `${v.x1 - v.x0} / ${v.y1 - v.y0}`);
@@ -1223,6 +1302,7 @@
       { label: `As drawn (${Math.round(PO.depth)})`, active: p.depth === Math.round(PO.depth), pick: () => setPorchStyle({ depth: Math.round(PO.depth) }) },
     ]);
     choiceRow('#front-style', [['photo', 'Photo design'], ['drawn', 'As drawn']], p.front, (v) => setPorchStyle({ front: v }));
+    choiceRow('#porch-sides', [['glazed', 'Glazed'], ['brick', 'Brick']], p.sides, (v) => setPorchStyle({ sides: v }));
     $('#pier-field').hidden = p.front !== 'photo';
     showPair('pier', p.pier);
     chipRow('#pier-snaps', [[215, '1 brick'], [328, '1½ bricks'], [440, '2 bricks']].map(([w, label]) => (
@@ -1276,6 +1356,7 @@
     $('#t-guides').checked = ui.guides;
     $('#t-asdrawn').checked = ui.asDrawn;
     $('#t-ghost').checked = ui.ghost;
+    if (ui.view === '3d' && house3d) house3d.update(design);
   }
 
   function select(id) {
@@ -1353,6 +1434,9 @@
   for (const b of document.querySelectorAll('[data-pick]')) b.addEventListener('click', () => select(b.dataset.pick));
   for (const b of document.querySelectorAll('[data-view]')) {
     b.addEventListener('click', () => { ui.view = b.dataset.view; setView(); render(); });
+  }
+  for (const b of document.querySelectorAll('[data-cam]')) {
+    b.addEventListener('click', () => { if (house3d) house3d.setCamera(b.dataset.cam); });
   }
   $('#t-rails').addEventListener('change', (e) => { design.rails = e.target.checked; render(); });
   $('#t-guides').addEventListener('change', (e) => { ui.guides = e.target.checked; render(); });
