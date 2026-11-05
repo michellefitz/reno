@@ -221,6 +221,13 @@
   .unit { font: 12px var(--font-mono); color: var(--ink-2); }
   .rel { margin: 0; font-size: 13px; color: var(--ink-2); }
   .snaps { display: flex; flex-wrap: wrap; gap: 6px; }
+  .walls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .walls label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
+  .walls .wall-input { display: flex; align-items: center; gap: 6px; }
+  .walls input {
+    width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 4px;
+    background: var(--sheet); font: 13.5px var(--font-mono); text-align: right; font-variant-numeric: tabular-nums;
+  }
 
   .panes { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; width: max-content; }
   .panes button { border: 0; background: transparent; width: 40px; padding: 5px 0; cursor: pointer; font: 500 13.5px var(--font-mono); }
@@ -387,6 +394,20 @@
             <span class="unit">mm</span>
           </div>
           <div class="snaps" id="width-snaps" role="group" aria-label="Width presets"></div>
+        </div>
+
+        <div class="field" id="walls-field">
+          <span class="label">Wall either side, inside the centre panel</span>
+          <div class="walls">
+            <label for="wall-left">Left of the window
+              <span class="wall-input"><input type="number" id="wall-left" step="5" min="-500" inputmode="numeric"><span class="unit">mm</span></span>
+            </label>
+            <label for="wall-right">Right of the window
+              <span class="wall-input"><input type="number" id="wall-right" step="5" min="-500" inputmode="numeric"><span class="unit">mm</span></span>
+            </label>
+          </div>
+          <p class="rel">From each panel corner to the window frame. Typing one side moves that side of the window only.</p>
+          <div class="snaps" id="walls-snaps" role="group" aria-label="Wall presets"></div>
         </div>
 
         <div class="field" id="panes-field">
@@ -1298,6 +1319,19 @@
       ws.appendChild(b);
     }
 
+    // Wall either side of the centre window, inside the centre panel.
+    $('#walls-field').hidden = id !== 'ff-centre';
+    if (id === 'ff-centre') {
+      for (const [el, v] of [[$('#wall-left'), m.marginL], [$('#wall-right'), m.marginR]]) {
+        if (document.activeElement !== el) el.value = Math.round(v);
+      }
+      chipRow('#walls-snaps', [{
+        label: 'Same both sides, keep the width',
+        active: Math.abs(m.marginL - m.marginR) < 0.5,
+        pick: () => setPos('ff-centre', PANEL_C),
+      }]);
+    }
+
     const panesField = $('#panes-field');
     panesField.hidden = id === 'porch';
     if (id !== 'porch') {
@@ -1576,6 +1610,24 @@
     widthEl.blur();
     render();
   });
+  // Typing a wall width moves that edge of the centre window; the other edge stays.
+  function setCentreWindowEdge(side, wall) {
+    const w = design.windows['ff-centre'];
+    const min = Math.ceil(minWidth(w.panes) / 10) * 10, max = widthRange('ff-centre')[1];
+    let [x0, x1] = frameEdges(w);
+    if (side === 'left') x0 = Math.min(Math.max(E.panel.left + wall, x1 - max), x1 - min);
+    else x1 = Math.max(Math.min(E.panel.right - wall, x0 + max), x0 + min);
+    setWindow('ff-centre', { cx: (x0 + x1) / 2, width: x1 - x0 });
+  }
+  for (const side of ['left', 'right']) {
+    const input = $(`#wall-${side}`);
+    input.addEventListener('change', () => {
+      const v = Number(input.value);
+      if (input.value !== '' && Number.isFinite(v)) setCentreWindowEdge(side, v);
+      input.blur();
+      render();
+    });
+  }
   for (const [name, key] of [['pitch', 'pitch'], ['end-pitch', 'endPitch'], ['hip-pitch', 'hipPitch'], ['depth', 'depth'], ['pier', 'pier']]) {
     const r = $(`#${name}-range`), n = $(`#${name}`);
     r.addEventListener('input', () => { setPorchStyle({ [key]: Number(r.value) }); render(); });
